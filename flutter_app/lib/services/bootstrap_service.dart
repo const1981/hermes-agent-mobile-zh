@@ -171,18 +171,30 @@ class BootstrapService {
         'ca-certificates git python3 python3-venv python3-pip curl wget',
       );
 
-      _updateSetupNotification('正在克隆 Hermes Agent 仓库...', progress: 70);
-      onProgress(const SetupState(
-        step: SetupStep.installingHermesAgent,
-        progress: 0.0,
-        message: '正在克隆 Hermes Agent 仓库...',
-      ));
-      await NativeBridge.runInProot(
-        'cd /root && '
-        'rm -rf hermes-agent && '
-        'git clone https://github.com/nousresearch/hermes-agent.git hermes-agent',
-        timeout: 600,
-      );
+      // Clone with retry (GitHub CN unstable; --depth 1 cuts transfer a lot)
+      const maxCloneAttempts = 3;
+      for (int attempt = 1; attempt <= maxCloneAttempts; attempt++) {
+        try {
+          onProgress(SetupState(
+            step: SetupStep.installingHermesAgent,
+            progress: 0.0,
+            message: '正在克隆 Hermes Agent 仓库...（第 $attempt/$maxCloneAttempts 次尝试）',
+          ));
+          _updateSetupNotification(
+            '正在克隆 Hermes Agent 仓库（第 $attempt/$maxCloneAttempts 次）...',
+            progress: 70,
+          );
+          await NativeBridge.runInProot(
+            'cd /root && rm -rf hermes-agent && '
+            'git clone --depth 1 https://github.com/nousresearch/hermes-agent.git hermes-agent',
+            timeout: 600,
+          );
+          break;
+        } catch (e) {
+          if (attempt == maxCloneAttempts) rethrow;
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
 
       _updateSetupNotification('正在安装 Python 依赖...', progress: 85);
       onProgress(const SetupState(
@@ -190,12 +202,21 @@ class BootstrapService {
         progress: 0.5,
         message: '正在安装 Python 依赖...',
       ));
+      // 1) create venv
       await NativeBridge.runInProot(
-        'cd /root/hermes-agent && '
-        'python3 -m venv venv && '
-        'source venv/bin/activate && '
-        'pip install --upgrade pip || true && '
-        'pip install -r requirements.txt',
+        'cd /root/hermes-agent && python3 -m venv venv',
+        timeout: 120,
+      );
+      // 2) upgrade pip — ignore failure (proot may return nonzero even when ok)
+      try {
+        await NativeBridge.runInProot(
+          'cd /root/hermes-agent && ./venv/bin/python -m pip install --upgrade pip',
+          timeout: 300,
+        );
+      } catch (_) {}
+      // 3) install dependencies via venv python directly (no `source activate`)
+      await NativeBridge.runInProot(
+        'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt',
         timeout: 1800,
       );
 

@@ -121,8 +121,8 @@ class AppStrings {
 
   // ── Setup Wizard ─────────────────────────────
   String get setupHermesAgent       => isZh ? '安装赫尔墨斯'         : 'Setup Hermes Agent';
-  String get setupProgressDesc      => isZh ? '正在配置环境，可能需要几分钟...'
-                                         : 'Setting up the environment. This may take several minutes.';
+  String get setupProgressDesc      => isZh ? '首次安装约需 10-30 分钟，请保持网络畅通...'
+                                         : 'First setup takes ~10-30 min. Keep network on.';
   String get setupInitialDesc       => isZh ? '将下载 Ubuntu、Python 和 Hermes Agent 到独立环境中'
                                          : 'This will download Ubuntu, Python, and Hermes Agent into a self-contained environment.';
   String get goToDashboard          => isZh ? '前往主界面'           : 'Go to Dashboard';
