@@ -71,6 +71,16 @@ class NativeBridge {
     return r ?? '';
   }
 
+  static Future<List<Map<String, dynamic>>> listBackups() async {
+    final result = await _channel.invokeMethod('listBackups');
+    if (result == null) return [];
+    return (result as List).map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  static Future<bool> restoreDataDir(String path) async {
+    return await _channel.invokeMethod('restoreDataDir', {'path': path});
+  }
+
   static Future<bool> hasStoragePermission() async {
     return await _channel.invokeMethod('hasStoragePermission');
   }

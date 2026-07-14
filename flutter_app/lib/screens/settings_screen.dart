@@ -172,6 +172,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: _backupData,
                 ),
                 ListTile(
+                  title: Text(s.restoreData),
+                  subtitle: Text(s.restoreDataDesc),
+                  leading: const Icon(Icons.restore),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _restoreData,
+                ),
+                ListTile(
                   title: Text(s.importSnapshot),
                   subtitle: Text(s.importSnapshotDesc),
                   leading: const Icon(Icons.download),
@@ -318,22 +325,124 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _backupData() async {
+    if (!mounted) return;
+    // 整环境镜像可能几个 GB，用模态进度弹窗，避免“点了没动静”的错觉
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(s.backupStarted)),
+          ],
+        ),
+      ),
+    );
     try {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.backupStarted)),
-      );
       final path = await NativeBridge.backupDataDir();
       if (!mounted) return;
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.backupSaved(path))),
       );
     } catch (e) {
       if (!mounted) return;
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.backupFailed(e))),
       );
     }
+  }
+
+  Future<void> _restoreData() async {
+    List<Map<String, dynamic>> backups;
+    try {
+      backups = await NativeBridge.listBackups();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.backupFailed(e))),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (backups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.noBackupFound)),
+      );
+      return;
+    }
+    final chosen = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.restoreData),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: backups.length,
+            itemBuilder: (_, i) {
+              final b = backups[i];
+              final size = (b['size'] as int? ?? 0);
+              final date = b['modified'] != null
+                  ? DateTime.fromMillisecondsSinceEpoch(b['modified'] as int)
+                  : null;
+              return ListTile(
+                title: Text(b['name'] as String? ?? ''),
+                subtitle: Text(
+                  '${_fmtSize(size)}${date != null ? ' · ${date.toLocal()}' : ''}',
+                ),
+                onTap: () => Navigator.pop(ctx, b['path'] as String?),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.cancel),
+          ),
+        ],
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    // 一键还原：模态进度弹窗，完成才关
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(s.restoreStarted)),
+          ],
+        ),
+      ),
+    );
+    try {
+      final ok = await NativeBridge.restoreDataDir(chosen);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? s.restoreDone : s.restoreFailedSimple)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.backupFailed(e))),
+      );
+    }
+  }
+
+  String _fmtSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+    return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
   }
 
   Future<void> _importSnapshot() async {

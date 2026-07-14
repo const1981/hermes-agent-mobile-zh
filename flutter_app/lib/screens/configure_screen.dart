@@ -136,6 +136,34 @@ class _ChannelPanel extends StatelessWidget {
               style: TextStyle(color: Colors.grey)),
         ),
         const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () async {
+              final cfg = context.read<ConfigProvider>();
+              try {
+                await NativeBridge.writeRootfsFile(
+                    'root/.hermes/config.yaml', cfg.toConfigYaml());
+                await NativeBridge.writeRootfsFile(
+                    'root/.hermes/.env', cfg.toEnv());
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('频道配置已保存，重启网关生效')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('保存失败：$e')),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.save),
+            label: const Text('保存配置'),
+          ),
+        ),
+        const SizedBox(height: 12),
         const Text('配置保存后需重启网关生效（设置页 → 重启网关）。',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],

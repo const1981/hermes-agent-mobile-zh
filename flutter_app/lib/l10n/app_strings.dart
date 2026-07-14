@@ -79,8 +79,9 @@ class AppStrings {
   String get exportSnapshot         => isZh ? '导出快照'              : 'Export Snapshot';
   String get exportSnapshotDesc     => isZh ? '备份配置到 Downloads'   : 'Backup config to Downloads';
   String get backupData             => isZh ? '备份数据包'            : 'Backup Data Package';
-  String get backupDataDesc         => isZh ? '导出整个工作目录到 Downloads' : 'Export full data dir to Downloads';
-  String get backupStarted          => isZh ? '正在备份，请稍候（可能需几分钟）…' : 'Backing up, please wait…';
+  String get backupDataDesc         => isZh ? '备份整套已安装环境(系统镜像: Ubuntu/Python/Hermes/全部依赖)到 Download，用于一键还原'
+                                         : 'Backup the full installed environment (system image) to Download for one-click restore';
+  String get backupStarted          => isZh ? '正在打包系统镜像，文件较大请耐心等待…' : 'Packing system image, large file, please wait…';
   String backupSaved(String path)   => isZh ? '数据包已备份到：$path' : 'Data package backed up to: $path';
   String backupFailed(dynamic e)    => isZh ? '备份失败：$e'          : 'Backup failed: $e';
   String get importSnapshot         => isZh ? '导入快照'              : 'Import Snapshot';
@@ -99,6 +100,15 @@ class AppStrings {
   String get snapshotRestored   => isZh ? '快照恢复成功，请重启网关以生效。'
                                          : 'Snapshot restored successfully. Restart the gateway to apply.';
   String importFailed(dynamic e)    => isZh ? '导入失败：$e'          : 'Import failed: $e';
+
+  // ── Backup / Restore 系统镜像 ────────
+  String get restoreData            => isZh ? '恢复数据(系统镜像)'      : 'Restore System Image';
+  String get restoreDataDesc        => isZh ? '从备份镜像一键还原整个运行环境(Ghost 式)，相当于重装好系统'
+                                         : 'One-click restore of the whole environment from a backup image (Ghost-style)';
+  String get restoreStarted         => isZh ? '正在还原系统镜像，请稍候…' : 'Restoring system image, please wait…';
+  String get restoreDone            => isZh ? '环境已还原，重启网关即可使用' : 'Environment restored. Restart the gateway to use it.';
+  String get restoreFailedSimple    => isZh ? '恢复失败'              : 'Restore failed';
+  String get noBackupFound          => isZh ? '未找到任何备份镜像（请先备份环境）' : 'No backup images found (back up first)';
 
   // ── Language selector ─────────────────────────
   String get language               => isZh ? '语言'                 : 'Language';
