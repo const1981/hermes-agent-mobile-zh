@@ -57,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen>
       try { await NativeBridge.writeResolv(); } catch (_) {}
       try {
         final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+        const resolvContent = AppConstants.prootResolv;
         final resolvFile = File('$filesDir/config/resolv.conf');
         if (!resolvFile.existsSync()) {
           Directory('$filesDir/config').createSync(recursive: true);
@@ -107,34 +107,8 @@ class _SplashScreenState extends State<SplashScreen>
         setupComplete = false;
       }
 
-      // Auto-repair
-      if (!setupComplete) {
-        try {
-          final status = await NativeBridge.getBootstrapStatus();
-          final rootfsOk = status['rootfsExists'] == true;
-          final bashOk = status['binBashExists'] == true;
-          final pythonOk = status['pythonInstalled'] == true;
-          final hermesOk = status['hermesInstalled'] == true;
-
-          if (rootfsOk && bashOk) {
-            if (!pythonOk) {
-              setState(() => _status = s.reinstallingPython);
-              await NativeBridge.runInProot(
-                'apt-get update -y && apt-get install -y python3 python3-venv python3-pip',
-                timeout: 600,
-              );
-            }
-            if (!hermesOk) {
-              setState(() => _status = s.reinstallingHermes);
-              await NativeBridge.runInProot(
-                'cd /root/hermes-agent && source venv/bin/activate && pip install -r requirements.txt',
-                timeout: 1800,
-              );
-            }
-            setupComplete = await NativeBridge.isBootstrapComplete();
-          }
-        } catch (_) {}
-      }
+      // 不再在 splash 做自动修复（旧版命令错误+阻塞长达30分钟导致用户卡在启动页进不去界面）。
+      // 安装/修复统一走 SetupWizard（用户手动触发），保证启动秒进界面。
 
       if (!mounted) return;
 
