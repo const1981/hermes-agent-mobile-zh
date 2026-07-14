@@ -7,65 +7,41 @@ import '../models/provider_template.dart';
 import '../providers/config_provider.dart';
 import '../services/native_bridge.dart';
 
-/// 配置页（对标 1Panel）：左侧导航 [频道 | 模型 | 技能 | 设置]，右侧原生表单。
-/// 不再使用内置终端跑 hermes setup 命令行。
-class ConfigureScreen extends StatefulWidget {
+/// 配置页（对标 1Panel）：顶部 TabBar [频道 | 模型 | 技能 | 设置]，下方原生表单。
+/// 不再使用 NavigationRail（桌面组件，手机窄屏会水平溢出把内容挤出视口→白屏）。
+class ConfigureScreen extends StatelessWidget {
   const ConfigureScreen({super.key});
 
   @override
-  State<ConfigureScreen> createState() => _ConfigureScreenState();
-}
-
-class _ConfigureScreenState extends State<ConfigureScreen> {
-  int _selectedIndex = 1; // 默认停在「模型」
-
-  AppStrings get s => AppStrings.of(context);
-
-  static const _navItems = [
-    (icon: Icons.forum_outlined, label: '频道'),
-    (icon: Icons.hub_outlined, label: '模型'),
-    (icon: Icons.extension_outlined, label: '技能'),
-    (icon: Icons.settings_outlined, label: '设置'),
-  ];
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hermes 配置'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Row(
-        children: [
-          // 左侧导航（手机上用窄 rail）
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final item in _navItems)
-                NavigationRailDestination(
-                  icon: Icon(item.icon),
-                  label: Text(item.label),
-                ),
+    return DefaultTabController(
+      length: 4,
+      initialIndex: 1, // 默认停在「模型」
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Hermes 配置'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          bottom: const TabBar(
+            isScrollable: false,
+            tabs: [
+              Tab(icon: Icon(Icons.forum_outlined), text: '频道'),
+              Tab(icon: Icon(Icons.hub_outlined), text: '模型'),
+              Tab(icon: Icon(Icons.extension_outlined), text: '技能'),
+              Tab(icon: Icon(Icons.settings_outlined), text: '设置'),
             ],
           ),
-          const VerticalDivider(width: 1, thickness: 1),
-          // 右侧内容
-          Expanded(
-            child: _selectedIndex == 0
-                ? const _ChannelPanel()
-                : _selectedIndex == 1
-                    ? const _ModelPanel()
-                    : _selectedIndex == 2
-                        ? const _SkillPanel()
-                        : const _SettingPanel(),
-          ),
-        ],
+        ),
+        body: const TabBarView(
+          children: [
+            _ChannelPanel(),
+            _ModelPanel(),
+            _SkillPanel(),
+            _SettingPanel(),
+          ],
+        ),
       ),
     );
   }
@@ -255,6 +231,7 @@ class _ModelPanelState extends State<_ModelPanel> {
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String>(
                   value: cfg.model,
+                  isExpanded: true,
                   items: (cfg.selectedTemplate?.models ?? [cfg.model])
                       .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                       .toList(),
