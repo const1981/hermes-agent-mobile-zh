@@ -35,6 +35,7 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.BufferedOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -419,7 +420,7 @@ class MainActivity : FlutterActivity() {
                             } else {
                                 ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
                             }
-                            val outDir = if (hasPermission) {
+                            val outDir: File = if (hasPermission) {
                                 val d = File(Environment.getExternalStorageDirectory(), "Download")
                                 if (!d.exists()) d.mkdirs()
                                 d
