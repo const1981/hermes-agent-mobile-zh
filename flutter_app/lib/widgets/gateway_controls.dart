@@ -40,7 +40,7 @@ class GatewayControls extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _statusBadge(state.status, theme),
+                    _statusBadge(context, state.status, theme),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -122,7 +122,7 @@ class GatewayControls extends StatelessWidget {
     );
   }
 
-  Widget _statusBadge(GatewayStatus status, ThemeData theme) {
+  Widget _statusBadge(BuildContext context, GatewayStatus status, ThemeData theme) {
     Color color;
     String label;
     IconData icon;

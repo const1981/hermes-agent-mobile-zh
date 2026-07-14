@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../providers/gateway_provider.dart';
 import '../widgets/gateway_controls.dart';

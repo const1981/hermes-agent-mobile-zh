@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../models/setup_state.dart';

@@ -11,6 +11,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../providers/locale_provider.dart';
 
 // ── Typed accessors ────────────────────────────────────────────
@@ -82,17 +83,17 @@ class AppStrings {
   String get rerunSetup             => isZh ? '重新运行安装程序'       : 'Re-run setup';
   String get rerunSetupDesc         => isZh ? '重新安装或修复环境'     : 'Reinstall or repair the environment';
   String get aboutSection           => isZh ? '关于'                  : 'ABOUT';
-  String get aboutApp               => isZh ? '赫尔墨斯 AI 网关\n版本 ${_version}'
-                                         : 'AI Gateway for Android\nVersion ${_version}';
+  String aboutApp(String version) => isZh ? '赫尔墨斯 AI 网关\n版本 $version'
+                                         : 'AI Gateway for Android\nVersion $version';
   String get github                 => isZh ? 'GitHub'               : 'GitHub';
   String get contact                => isZh ? '联系我们'              : 'Contact';
   String get licenseLabel           => isZh ? '许可证'               : 'License';
-  String get snapshotSaved          => isZh ? '快照已保存到 $path'     : 'Snapshot saved to $path';
-  String get exportFailed           => isZh ? '导出失败：$e'          : 'Export failed: $e';
-  String get noSnapshotFound        => isZh ? '未找到快照文件 $path'   : 'No snapshot found at $path';
-  String get snapshotRestored       => isZh ? '快照恢复成功，请重启网关以生效。'
+  String snapshotSaved(String path) => isZh ? '快照已保存到 $path'     : 'Snapshot saved to $path';
+  String exportFailed(dynamic e)    => isZh ? '导出失败：$e'          : 'Export failed: $e';
+  String noSnapshotFound(String path) => isZh ? '未找到快照文件 $path'   : 'No snapshot found at $path';
+  String get snapshotRestored   => isZh ? '快照恢复成功，请重启网关以生效。'
                                          : 'Snapshot restored successfully. Restart the gateway to apply.';
-  String get importFailed           => isZh ? '导入失败：$e'          : 'Import failed: $e';
+  String importFailed(dynamic e)    => isZh ? '导入失败：$e'          : 'Import failed: $e';
 
   // ── Language selector ─────────────────────────
   String get language               => isZh ? '语言'                 : 'Language';
@@ -140,10 +141,10 @@ class AppStrings {
   // ── Setup Steps (bootstrap_service) ──────────
   String get bootstrapComplete      => isZh ? '安装完成'             : 'Setup complete';
   String get bootstrapRequired      => isZh ? '需要安装'             : 'Setup required';
-  String get checkFailed            => isZh ? '检查失败：$e'         : 'Failed to check status: $e';
+  String checkFailed(dynamic e)     => isZh ? '检查失败：$e'         : 'Failed to check status: $e';
   String get settingUpDirs          => isZh ? '正在创建目录...'      : 'Setting up directories...';
   String get downloadingRootfs      => isZh ? '正在下载 Ubuntu Rootfs...': 'Downloading Ubuntu rootfs...';
-  String get downloadingRootfsDetail=> isZh ? '下载中：$mb MB / $totalMb MB': 'Downloading: $mb MB / $totalMb MB';
+  String downloadingRootfsDetail(int mb, int totalMb) => isZh ? '下载中：$mb MB / $totalMb MB' : 'Downloading: $mb MB / $totalMb MB';
   String get extractingRootfsMsg     => isZh ? '正在解压 Rootfs（需要较长时间）...': 'Extracting rootfs (this takes a while)...';
   String get rootfsExtracted        => isZh ? 'Rootfs 解压完成'       : 'Rootfs extracted';
   String get fixingPermissions      => isZh ? '正在修复 Rootfs 权限...': 'Fixing rootfs permissions...';
@@ -155,17 +156,17 @@ class AppStrings {
   String get hermesAgentInstalled   => isZh ? 'Hermes Agent 安装完成': 'Hermes Agent installed';
   String get envConfigured          => isZh ? '环境配置完成'         : 'Environment configured';
   String get setupCompleteReady     => isZh ? '安装完成！可以开始使用 Agent 了。': 'Setup complete! Ready to start the agent.';
-  String get downloadFailed         => isZh ? '下载失败：$msg。请检查网络连接。': 'Download failed: $msg. Check your internet connection.';
-  String get setupFailed            => isZh ? '安装失败：$e'          : 'Setup failed: $e';
+  String downloadFailed(String msg) => isZh ? '下载失败：$msg。请检查网络连接。' : 'Download failed: $msg. Check your internet connection.';
+  String setupFailed(dynamic e)     => isZh ? '安装失败：$e'          : 'Setup failed: $e';
 
   // ── Onboarding / Configure screens ───────────
   String get onboardingAppBar       => isZh ? '引导设置'             : 'Hermes Agent Onboarding';
   String get configureAppBar        => isZh ? '网关配置'             : 'Hermes Agent Configure';
   String get startingOnboarding     => isZh ? '正在启动引导...'      : 'Starting onboarding...';
   String get startingConfigure       => isZh ? '正在启动配置...'      : 'Starting configure...';
-  String get startOnboardingFailed  => isZh ? '启动引导失败：$e'      : 'Failed to start onboarding: $e';
-  String get startConfigureFailed   => isZh ? '启动配置失败：$e'      : 'Failed to start configure: $e';
-  String get startShellFailed       => isZh ? '启动终端失败：$e'      : 'Failed to start shell: $e';
+  String startOnboardingFailed(dynamic e) => isZh ? '启动引导失败：$e'      : 'Failed to start onboarding: $e';
+  String startConfigureFailed(dynamic e) => isZh ? '启动配置失败：$e'      : 'Failed to start configure: $e';
+  String startShellFailed(dynamic e) => isZh ? '启动终端失败：$e'      : 'Failed to start shell: $e';
   String get copiedToClipboard      => isZh ? '已复制到剪贴板'       : 'Copied to clipboard';
   String get retry                  => isZh ? '重试'                 : 'Retry';
   String get done                   => isZh ? '完成'                 : 'Done';

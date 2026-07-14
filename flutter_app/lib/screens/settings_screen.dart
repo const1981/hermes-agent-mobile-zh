@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_strings.dart';
+import '../providers/locale_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import 'setup_wizard_screen.dart';
@@ -182,11 +184,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const Divider(),
                 _sectionHeader(theme, s.aboutSection),
-                const ListTile(
-                  title: Text('Hermes Agent'), // keep brand name
-                  subtitle: Text(
-                    'AI Gateway for Android\nVersion ${AppConstants.version}',
-                  ),
+                ListTile(
+                  title: Text(s.aboutApp(AppConstants.version).split('\n')[0]),
+                  subtitle: Text(s.aboutApp(AppConstants.version)),
                   leading: Icon(Icons.info_outline),
                   isThreeLine: true,
                 ),
@@ -281,12 +281,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await File(path).writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.snapshotSaved.replaceAll(r'$path', path))),
+        SnackBar(content: Text(s.snapshotSaved(path))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.exportFailed.replaceAll(r'$e', e.toString()))),
+        SnackBar(content: Text(s.exportFailed(e))),
       );
     }
   }
@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await file.exists()) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(s.noSnapshotFound.replaceAll(r'$path', path))),
+          SnackBar(content: Text(s.noSnapshotFound(path))),
         );
         return;
       }
@@ -314,12 +314,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _loadSettings();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Snapshot restored successfully. Restart the gateway to apply.')),
+        SnackBar(content: Text(s.snapshotRestored)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.importFailed.replaceAll(r'$e', e.toString()))),
+        SnackBar(content: Text(s.importFailed(e))),
       );
     }
   }

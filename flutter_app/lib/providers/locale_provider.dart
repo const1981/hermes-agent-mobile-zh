@@ -36,8 +36,8 @@ class LocaleProvider extends ChangeNotifier {
   /// System locale from [PlatformDispatcher].
   static Locale get platformLocale {
     final raw = PlatformDispatcher.instance.locale;
-    if (raw.isEmpty) return const Locale('zh');
-    return Locale.fromSubtags(languageCode: raw);
+    if (raw.languageCode.isEmpty) return const Locale('zh');
+    return Locale.fromSubtags(languageCode: raw.languageCode);
   }
 
   Future<void> init() async {
