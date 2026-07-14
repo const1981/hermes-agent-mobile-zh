@@ -35,46 +35,39 @@
 
 ---
 
-## 三、前置要求
+## 三、前置要求（APK 路线，推荐）
 
 | 项目 | 说明 |
 |------|------|
-| 手机系统 | 安卓（iOS 暂不做，沙盒限制无法本地驻留进程） |
-| 应用 | [Termux](https://f-droid.org/zh_Hans/packages/com.termux/)（F-Droid 或 GitHub 版，Google Play 版较旧） |
-| 存储 | 约 2–4 GB 空闲（含 Python 环境与依赖） |
-| 网络 | 能访问 GitHub / PyPI / 你选的模型 API |
+| 手机系统 | 安卓 8+（iOS 暂不做，沙盒限制无法本地驻留进程） |
+| 应用 | **Hermes Android App（本仓库构建的 APK）** —— 自带运行环境，**无需先装 Termux** |
+| 存储 | 装 APK 约 30MB；首次运行会下载 Ubuntu 运行环境，需额外约 500MB~1GB |
+| 网络 | 能访问 GitHub / PyPI / Ubuntu 镜像 / 你选的模型 API |
 | 密钥 | 任一云端 LLM 的 API Key（见下方"获取 Key"） |
 
-首次打开 Termux 建议先执行：
-
-```bash
-pkg update && pkg upgrade -y
-termux-setup-storage   # 授予存储权限（可选，方便读写手机文件）
-```
+> 想走「纯 Termux 脚本」极简路线（不装 App）才需要先装 Termux，见 [安装指南.md](安装指南.md) 附录。
 
 ---
 
-## 四、一键安装（App 内点按钮即可，不用在 Termux 敲命令）
+## 四、一键安装（推荐：先装 App，Termux 不用装）
 
-**普通用户**：打开 App → 点「一键安装」→ 跟着界面填模型服务商和 Key → 自动装好，全程**不需要**打开 Termux 手敲命令。
-App 内部就是调用本仓库的 `scripts/install-termux.sh`（中文交互），但由 App 代你跑，你只管在界面上点。
+**完整图文步骤见 [安装指南.md](安装指南.md)。** 简要流程：
 
-**进阶 / 排障用户**：也可以自己在 Termux 里执行一条命令（效果与 App 内按钮完全相同）：
+1. 安装本仓库构建的 APK（Hermes Android App）。
+2. 打开 App → 首次「Setup」向导点 **Begin Setup** → App 自动下载 Ubuntu + 安装 Hermes（约几分钟，需联网）。
+3. 进 Dashboard → 启动网关（本机 `127.0.0.1:18789`）。
+4. 点「Configure」→ 内置终端跑 `hermes setup` → 选服务商 + 填你的 API Key。
+5. 按 [后台保活指南](docs/后台保活指南.md) 设置后台保活。
+
+> App 的「一键安装」是**自带的**：它在 App 私有目录里用内置 proot 解包 Ubuntu、克隆并安装 Hermes，**不调用 `scripts/install-termux.sh`、也不需要 Termux**。全程界面点按，无需命令行。
+
+**可选 · 纯 Termux 路线（不用 App，需先装 Termux）**：
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/const1981/hermes-agent-mobile-zh/main/scripts/install-termux.sh)
 ```
 
-脚本会依次：
-1. 让你选大模型提供商（OpenRouter / 智谱 / DeepSeek / Kimi / 自定义）
-2. 收集 API Key（输入不回显）
-3. 设置清华 pip 镜像（加速 ARM 上的依赖安装）
-4. 调用上游官方安装器装好 `hermes-agent`（Termux 精简版，已自动排除本地语音依赖）
-5. 写入中文配置到 `~/.hermes/config.yaml` 与 `.env`
-6. 可选启动 Telegram 网关
-7. 直接进入 Hermes 对话
-
-> 安装器调用的是上游官方脚本 `https://hermes-agent.nousresearch.com/install.sh`（仅用于装 Agent 本体，本仓库不打包其代码）。
+该脚本会依次：选大模型提供商 → 收集 API Key → 设清华 pip 镜像 → 调用上游官方安装器装好 `hermes-agent`（Termux 原生，已排除本地语音依赖）→ 写中文配置 → 可选启动 Telegram 网关。
 
 ---
 
