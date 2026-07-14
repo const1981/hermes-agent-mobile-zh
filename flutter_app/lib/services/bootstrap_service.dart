@@ -194,7 +194,7 @@ class BootstrapService {
         'cd /root/hermes-agent && '
         'python3 -m venv venv && '
         'source venv/bin/activate && '
-        'pip install --upgrade pip && '
+        'pip install --upgrade pip || true && '
         'pip install -r requirements.txt',
         timeout: 1800,
       );
