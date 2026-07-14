@@ -58,12 +58,16 @@ class NativeBridge {
     return await _channel.invokeMethod('writeResolv');
   }
 
-  static Future<String> readRootfsFile(String path) async {
-    return await _channel.invokeMethod('readRootfsFile', {'path': path});
+  static Future<String?> readRootfsFile(String path) async {
+    return await _channel.invokeMethod<String?>('readRootfsFile', {'path': path});
   }
 
   static Future<bool> writeRootfsFile(String path, String content) async {
     return await _channel.invokeMethod('writeRootfsFile', {'path': path, 'content': content});
+  }
+
+  static Future<String> backupDataDir() async {
+    return await _channel.invokeMethod<String>('backupDataDir');
   }
 
   static Future<bool> hasStoragePermission() async {

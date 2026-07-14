@@ -31,6 +31,14 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.BufferedInputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.nxg.hermesagentmobile/native"
@@ -393,6 +401,31 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "path and content required", null)
                     }
                 }
+                "backupDataDir" -> {
+                    Thread {
+                        try {
+                            val srcDir = File(filesDir)
+                            val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                Environment.isExternalStorageManager()
+                            } else {
+                                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                            }
+                            val outDir = if (hasPermission) {
+                                val d = File(Environment.getExternalStorageDirectory(), "Download")
+                                if (!d.exists()) d.mkdirs()
+                                d
+                            } else {
+                                getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+                            }
+                            val timeFmt = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+                            val zipFile = File(outDir, "hermes-backup-${timeFmt.format(Date())}.zip")
+                            zipDirectory(srcDir, zipFile)
+                            runOnUiThread { result.success(zipFile.absolutePath) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("BACKUP_ERROR", e.message, null) }
+                        }
+                    }.start()
+                }
                 "bringToForeground" -> {
                     try {
                         val intent = Intent(applicationContext, MainActivity::class.java).apply {
@@ -544,6 +577,27 @@ class MainActivity : FlutterActivity() {
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(urlNotificationId++, notification)
+    }
+
+    private fun zipDirectory(sourceDir: File, zipFile: File) {
+        val buffer = ByteArray(1024 * 1024)
+        ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
+            val base = sourceDir.absolutePath.length + 1
+            sourceDir.walkTopDown().forEach { file ->
+                if (!file.isFile) return@forEach
+                val relative = file.absolutePath.substring(base)
+                zos.putNextEntry(ZipEntry(relative))
+                FileInputStream(file).use { fis ->
+                    BufferedInputStream(fis).use { bis ->
+                        var len: Int
+                        while (bis.read(buffer).also { len = it } > 0) {
+                            zos.write(buffer, 0, len)
+                        }
+                    }
+                }
+                zos.closeEntry()
+            }
+        }
     }
 
     companion object {

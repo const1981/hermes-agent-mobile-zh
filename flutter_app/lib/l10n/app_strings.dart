@@ -78,6 +78,11 @@ class AppStrings {
   String get maintenanceSection     => isZh ? '维护'                  : 'MAINTENANCE';
   String get exportSnapshot         => isZh ? '导出快照'              : 'Export Snapshot';
   String get exportSnapshotDesc     => isZh ? '备份配置到 Downloads'   : 'Backup config to Downloads';
+  String get backupData             => isZh ? '备份数据包'            : 'Backup Data Package';
+  String get backupDataDesc         => isZh ? '导出整个工作目录到 Downloads' : 'Export full data dir to Downloads';
+  String backupStarted              => isZh ? '正在备份，请稍候（可能需几分钟）…' : 'Backing up, please wait…';
+  String backupSaved(String path)   => isZh ? '数据包已备份到：$path' : 'Data package backed up to: $path';
+  String backupFailed(dynamic e)    => isZh ? '备份失败：$e'          : 'Backup failed: $e';
   String get importSnapshot         => isZh ? '导入快照'              : 'Import Snapshot';
   String get importSnapshotDesc     => isZh ? '从备份恢复配置'         : 'Restore config from backup';
   String get rerunSetup             => isZh ? '重新运行安装程序'       : 'Re-run setup';

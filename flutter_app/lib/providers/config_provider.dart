@@ -126,15 +126,24 @@ class ConfigProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 生成 Hermes config.yaml 的 model 段内容（供写盘用）
-  String toModelYaml() => '''
+  /// 生成完整 Hermes config.yaml（model + agent 段），供写盘用
+  String toConfigYaml() => '''
 model:
   provider: ${_useCustomProvider ? 'custom' : _providerId}
   model: $_model
   base_url: $_baseUrl
   api_key: \${HERMES_API_KEY}
+agent:
+  max_turns: 10
 ''';
 
-  /// 生成 .env 的密钥（供写盘用）
-  String toEnv() => 'HERMES_API_KEY=$_apiKey\n';
+  /// 生成 .env（密钥 + 频道变量），供写盘用
+  String toEnv() => [
+        'HERMES_API_KEY=$_apiKey',
+        if (_feishuEnabled) 'HERMES_FEISHU_APP_ID=$_feishuAppId',
+        if (_feishuEnabled) 'HERMES_FEISHU_APP_SECRET=$_feishuAppSecret',
+        if (_wechatEnabled) 'HERMES_WECHAT_TOKEN=$_wechatToken',
+        if (_wechatEnabled) 'HERMES_WECHAT_AES_KEY=$_wechatEncodingAesKey',
+        '',
+      ].join('\n');
 }

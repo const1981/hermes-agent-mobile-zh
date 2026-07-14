@@ -5,6 +5,7 @@ import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../models/provider_template.dart';
 import '../providers/config_provider.dart';
+import '../services/native_bridge.dart';
 
 /// 配置页（对标 1Panel）：左侧导航 [频道 | 模型 | 技能 | 设置]，右侧原生表单。
 /// 不再使用内置终端跑 hermes setup 命令行。
@@ -143,9 +144,14 @@ class _ChannelPanel extends StatelessWidget {
 }
 
 /// 模型：供应商卡片 + 只填 Key
-class _ModelPanel extends StatelessWidget {
+class _ModelPanel extends StatefulWidget {
   const _ModelPanel();
 
+  @override
+  State<_ModelPanel> createState() => _ModelPanelState();
+}
+
+class _ModelPanelState extends State<_ModelPanel> {
   @override
   Widget build(BuildContext context) {
     final cfg = context.watch<ConfigProvider>();
@@ -254,15 +260,71 @@ class _ModelPanel extends StatelessWidget {
               : null,
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: () {
-            // TODO: 写盘 ~/.hermes/config.yaml + .env（接 NativeBridge）
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('配置已保存（写盘逻辑待接入）')),
-            );
-          },
-          icon: const Icon(Icons.save),
-          label: const Text('保存配置'),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final cfg = context.read<ConfigProvider>();
+                  try {
+                    await NativeBridge.writeRootfsFile(
+                        'root/.hermes/config.yaml', cfg.toConfigYaml());
+                    await NativeBridge.writeRootfsFile(
+                        'root/.hermes/.env', cfg.toEnv());
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('配置已写入 ~/.hermes/config.yaml，重启网关生效')),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('保存失败：$e')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('保存配置'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: () async {
+                  final cfg = context.read<ConfigProvider>();
+                  if (cfg.apiKey.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请先填写 API Key')),
+                    );
+                    return;
+                  }
+                  try {
+                    final out = await NativeBridge.runInProot(
+                      'curl -s -o /dev/null -w "%{http_code}" -m 20 "${cfg.baseUrl}/models" '
+                      '-H "Authorization: Bearer ${cfg.apiKey}"',
+                      timeout: 30,
+                    );
+                    if (!mounted) return;
+                    final code = out.trim();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(code == '200'
+                            ? '连通正常（HTTP 200），Key 有效'
+                            : '测试返回：$code（非 200 请检查 Key/地址）'),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('验证失败：$e')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.verified),
+                label: const Text('验证连通性'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         const Text('选好供应商、填 Key → 保存，无需进命令行。',

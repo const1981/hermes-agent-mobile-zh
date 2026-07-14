@@ -165,6 +165,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: _exportSnapshot,
                 ),
                 ListTile(
+                  title: Text(s.backupData),
+                  subtitle: Text(s.backupDataDesc),
+                  leading: const Icon(Icons.archive),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _backupData,
+                ),
+                ListTile(
                   title: Text(s.importSnapshot),
                   subtitle: Text(s.importSnapshotDesc),
                   leading: const Icon(Icons.download),
@@ -306,6 +313,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.exportFailed(e))),
+      );
+    }
+  }
+
+  Future<void> _backupData() async {
+    try {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.backupStarted)),
+      );
+      final path = await NativeBridge.backupDataDir();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.backupSaved(path))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.backupFailed(e))),
       );
     }
   }
