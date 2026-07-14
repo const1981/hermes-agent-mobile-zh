@@ -64,7 +64,7 @@ PROVIDER=""; BASE_URL=""; MODEL=""; KEY_ENV=""; KEY_PROMPT=""
 
 while [ -z "$PROVIDER" ]; do
   printf "  ${C}请选择大模型提供商（Agent 仍跑在手机本地，只有推理请求发往云端）：${D}\n"
-  printf "    ${C}1)${D} OpenRouter   （推荐 · 聚合多家，含免费 ${W}xiaomi/mimo-v2.5${D}）\n"
+  printf "    ${C}1)${D} OpenRouter   （聚合多家 · 需自备付费 key，无免费模型）\n"
   printf "    ${C}2)${D} 智谱 GLM     （bigmodel.cn，国内）\n"
   printf "    ${C}3)${D} DeepSeek     （深度求索，国内）\n"
   printf "    ${C}4)${D} Kimi         （月之暗面，国内）\n"
@@ -75,7 +75,7 @@ while [ -z "$PROVIDER" ]; do
   case "$CHOICE" in
     1)
       PROVIDER="openrouter"; BASE_URL="https://openrouter.ai/api/v1"
-      MODEL="xiaomi/mimo-v2.5"; KEY_ENV="OPENROUTER_API_KEY"; KEY_PROMPT="OpenRouter API Key"
+      MODEL="openai/gpt-4o-mini"; KEY_ENV="OPENROUTER_API_KEY"; KEY_PROMPT="OpenRouter API Key（OpenRouter 无免费模型，需付费）"
       ;;
     2)
       PROVIDER="custom"; BASE_URL="https://open.bigmodel.cn/api/paas/v1"

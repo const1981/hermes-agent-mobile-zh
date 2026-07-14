@@ -12,10 +12,10 @@
 #  自定义 OpenAI 兼容端点（智谱/DeepSeek/Kimi 等）设 provider: custom
 # ============================================================
 
-# ---------- 方案 A：OpenRouter（推荐，聚合多家，含免费小米 Mimo） ----------
+# ---------- 方案 A：OpenRouter（聚合多家；无免费模型，需自备付费 key） ----------
 model:
   provider: openrouter
-  model: xiaomi/mimo-v2.5
+  model: openai/gpt-4o-mini            # OpenRouter 无免费模型，请换成你自己的付费模型
   base_url: https://openrouter.ai/api/v1
   api_key: ${OPENROUTER_API_KEY}        # 密钥写在 .env 的 OPENROUTER_API_KEY
 
