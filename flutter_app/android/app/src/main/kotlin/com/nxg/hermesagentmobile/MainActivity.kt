@@ -426,8 +426,7 @@ class MainActivity : FlutterActivity() {
                                 if (!d.exists()) d.mkdirs()
                                 outDir = d
                             } else {
-                                val ext = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                                outDir = ext ?: filesDir
+                                outDir = File(filesDir)
                             }
                             val timeFmt = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
                             val zipFile = File(outDir, "hermes-backup-${timeFmt.format(Date())}.zip")
