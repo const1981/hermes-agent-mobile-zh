@@ -55,7 +55,23 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Build release APK (debug-signed, installable)
+      # 固定签名密钥：从 Secret ANDROID_KEYSTORE（PKCS12 base64）还原 keystore.p12 + key.properties，
+      # 使我们的 0.3.x 版本之间可互相覆盖升级（CI 默认 debug key 每次都不同，会导致覆盖安装失败）。
+      # 用 shell 判断密钥是否存在，避免在 step 级 if:/env: 引用 secrets（更易触发工作流解析异常）。
+      - name: Setup fixed signing key (enables overwrite-upgrade)
+        working-directory: flutter_app
+        shell: bash
+        run: |
+          KEY="${{ secrets.ANDROID_KEYSTORE }}"
+          if [ -n "$KEY" ]; then
+            echo "$KEY" | base64 -d > android/app/keystore.p12
+            printf 'storeFile=keystore.p12\nstoreType=pkcs12\nkeyAlias=androiddebugkey\nkeyPassword=android\nstorePassword=android\n' > android/key.properties
+            echo "fixed signing keystore configured"
+          else
+            echo "ANDROID_KEYSTORE secret not set; using default debug signing"
+          fi
+
+      - name: Build release APK (fixed-key signed, installable & overwritable)
         working-directory: flutter_app
         run: flutter build apk --release
         env:
