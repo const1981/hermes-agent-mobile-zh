@@ -13,8 +13,9 @@ android/key.properties
 *.jks
 *.keystore
 
-# PRoot binaries (fetched by script, not committed)
-android/app/src/main/jniLibs/
+# PRoot 原生库：arm64-v8a 的 .so 必须进版本库，否则 CI 构建的 APK 会缺 libproot.so
+# （原仓库依赖外部下载脚本，但该脚本未包含在仓库内；此处改为直接提交已知库以保证可构建）
+android/app/src/main/jniLibs/**/.gitkeep
 
 # IDE
 .idea/

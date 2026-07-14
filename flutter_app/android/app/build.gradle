@@ -55,16 +55,19 @@ android {
         versionName = flutterVersionName
     }
 
-    if (hasKeystore) {
-        signingConfigs {
-            release {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
+        if (hasKeystore) {
+            signingConfigs {
+                release {
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                    storeFile file(keystoreProperties['storeFile'])
+                    storePassword keystoreProperties['storePassword']
+                    if (keystoreProperties.containsKey('storeType')) {
+                        storeType keystoreProperties['storeType']
+                    }
+                }
             }
         }
-    }
 
     buildTypes {
         debug {

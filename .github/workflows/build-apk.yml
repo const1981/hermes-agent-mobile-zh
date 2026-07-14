@@ -55,7 +55,16 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Build release APK (debug-signed, installable)
+      - name: Setup fixed signing key (from Secret, enables overwrite-upgrade)
+        if: ${{ secrets.ANDROID_KEYSTORE != '' }}
+        working-directory: flutter_app
+        run: |
+          echo "$ANDROID_KEYSTORE" | base64 -d > android/app/keystore.p12
+          printf 'storeFile=keystore.p12\nstoreType=pkcs12\nkeyAlias=androiddebugkey\nkeyPassword=android\nstorePassword=android\n' > android/key.properties
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+
+      - name: Build release APK (fixed-key signed, installable & overwritable)
         working-directory: flutter_app
         run: flutter build apk --release
         env:
