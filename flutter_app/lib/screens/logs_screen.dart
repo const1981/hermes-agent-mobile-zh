@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../app.dart';
+import '../l10n/app_strings.dart';
 import '../providers/gateway_provider.dart';
 
 class LogsScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class _LogsScreenState extends State<LogsScreen> {
   bool _autoScroll = true;
   String _filter = '';
 
+  AppStrings get s => AppStrings.of(context);
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -29,18 +32,18 @@ class _LogsScreenState extends State<LogsScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gateway Logs'),
+        title: Text(s.gatewayLogs),
         actions: [
           IconButton(
             icon: Icon(
               _autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_top,
             ),
-            tooltip: _autoScroll ? 'Auto-scroll on' : 'Auto-scroll off',
+            tooltip: _autoScroll ? s.autoScrollOn : s.autoScrollOff,
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copy all',
+            tooltip: s.copyAll,
             onPressed: _copyAll,
           ),
         ],
@@ -52,7 +55,7 @@ class _LogsScreenState extends State<LogsScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Filter logs...',
+                hintText: s.filterLogsPlaceholder,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _filter.isNotEmpty
                     ? IconButton(
@@ -76,7 +79,7 @@ class _LogsScreenState extends State<LogsScreen> {
                     : logs.where((l) => l.toLowerCase().contains(_filter)).toList();
 
                 if (filtered.isEmpty) {
-                  return const Center(child: Text('No logs yet'));
+                  return Center(child: Text(s.noLogsYet));
                 }
 
                 if (_autoScroll && _scrollController.hasClients) {
@@ -124,7 +127,7 @@ class _LogsScreenState extends State<LogsScreen> {
     final text = provider.logs.join('\n');
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('All logs copied')),
+      const SnackBar(content: Text('All logs copied')),  // keep English for short toast
     );
   }
 }

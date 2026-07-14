@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants.dart';
+import '../l10n/app_strings.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import 'setup_wizard_screen.dart';
@@ -21,6 +22,9 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
+  // ── i18n helper ───────────────────────
+  AppStrings get s => AppStrings.of(context);
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +37,7 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+    _status = s.loading;
     _checkAndRoute();
   }
 
@@ -46,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 500));
 
     try {
-      setState(() => _status = 'Checking setup status...');
+      setState(() => _status = s.checkingSetup);
 
       try { await NativeBridge.setupDirs(); } catch (_) {}
       try { await NativeBridge.writeResolv(); } catch (_) {}
@@ -113,14 +118,14 @@ class _SplashScreenState extends State<SplashScreen>
 
           if (rootfsOk && bashOk) {
             if (!pythonOk) {
-              setState(() => _status = 'Reinstalling Python...');
+              setState(() => _status = s.reinstallingPython);
               await NativeBridge.runInProot(
                 'apt-get update -y && apt-get install -y python3 python3-venv python3-pip',
                 timeout: 600,
               );
             }
             if (!hermesOk) {
-              setState(() => _status = 'Reinstalling Hermes Agent...');
+              setState(() => _status = s.reinstallingHermes);
               await NativeBridge.runInProot(
                 'cd /root/hermes-agent && source venv/bin/activate && pip install -r requirements.txt',
                 timeout: 1800,
@@ -145,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _status = 'Error: $e');
+        setState(() => _status = '${s.errorPrefix}$e');
       }
     }
   }
@@ -166,7 +171,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'Hermes Agent',
+                s.appName,
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -176,7 +181,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                'AI Gateway for Android',
+                s.appSubtitle,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

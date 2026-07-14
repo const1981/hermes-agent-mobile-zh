@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/setup_provider.dart';
 import 'providers/gateway_provider.dart';
+import 'providers/locale_provider.dart';
 import 'screens/splash_screen.dart';
 
 /// Centralized color palette for the entire app.
@@ -42,14 +43,26 @@ class HermesAgentApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SetupProvider()),
         ChangeNotifierProvider(create: (_) => GatewayProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()..init()),
       ],
-      child: MaterialApp(
-        title: 'Hermes Agent',
-        debugShowCheckedModeBanner: false,
-        theme: _buildLightTheme(),
-        darkTheme: _buildDarkTheme(),
-        themeMode: ThemeMode.system,
-        home: const SplashScreen(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProv, _) {
+          return MaterialApp(
+            title: 'Hermes Agent',
+            debugShowCheckedModeBanner: false,
+            theme: _buildLightTheme(),
+            darkTheme: _buildDarkTheme(),
+            themeMode: ThemeMode.system,
+            locale: localeProv.locale,
+            supportedLocales: const [
+              Locale('zh'),
+              Locale('en'),
+              Locale('en', 'US'),
+            ],
+            localizationsDelegates: const [],
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

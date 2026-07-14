@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app.dart';
 import '../constants.dart';
+import '../l10n/app_strings.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
 import '../widgets/progress_step.dart';
@@ -16,6 +17,8 @@ class SetupWizardScreen extends StatefulWidget {
 
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   bool _started = false;
+
+  AppStrings get s => AppStrings.of(context);
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +43,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Setup Hermes Agent',
+                    s.setupHermesAgent,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -48,8 +51,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _started
-                        ? 'Setting up the environment. This may take several minutes.'
-                        : 'This will download Ubuntu, Python, and Hermes Agent into a self-contained environment.',
+                        ? s.setupProgressDesc
+                        : s.setupInitialDesc,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -75,7 +78,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Text(
-                                  state.error ?? 'Unknown error',
+                                  state.error ?? s.unknownError,
                                   style: TextStyle(color: theme.colorScheme.onErrorContainer),
                                 ),
                               ),
@@ -92,7 +95,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       child: FilledButton.icon(
                         onPressed: () => _goToDashboard(context),
                         icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Go to Dashboard'),
+                        label: Text(s.goToDashboard),
                       ),
                     )
                   else if (!_started || state.hasError)
@@ -106,14 +109,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                                 provider.runSetup();
                               },
                         icon: const Icon(Icons.download),
-                        label: Text(_started ? 'Retry Setup' : 'Begin Setup'),
+                        label: Text(_started ? s.retrySetup : s.beginSetup),
                       ),
                     ),
                   if (!_started) ...[
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        'Requires ~500MB of storage and an internet connection',
+                        s.storageHint,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -139,12 +142,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Widget _buildSteps(SetupState state, ThemeData theme) {
+    final s = AppStrings.of(context);
     final steps = [
-      (1, 'Download Ubuntu rootfs', SetupStep.downloadingRootfs),
-      (2, 'Extract rootfs', SetupStep.extractingRootfs),
-      (3, 'Install Python', SetupStep.installingPython),
-      (4, 'Install Hermes Agent', SetupStep.installingHermesAgent),
-      (5, 'Configure environment', SetupStep.configuringEnvironment),
+      (1, s.downloadUbuntuRootfs, SetupStep.downloadingRootfs),
+      (2, s.extractRootfs, SetupStep.extractingRootfs),
+      (3, s.installPython, SetupStep.installingPython),
+      (4, s.installHermesAgent, SetupStep.installingHermesAgent),
+      (5, s.configureEnvironment, SetupStep.configuringEnvironment),
     ];
 
     return ListView(
@@ -161,7 +165,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         if (state.isComplete) ...[
           const ProgressStep(
             stepNumber: 6,
-            label: 'Setup complete!',
+            label: 'Setup complete!', // keep English for brand feel, or use s.setupComplete
             isComplete: true,
           ),
         ],

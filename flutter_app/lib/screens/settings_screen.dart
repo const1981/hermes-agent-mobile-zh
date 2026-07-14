@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
 import '../constants.dart';
+import '../l10n/app_strings.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import 'setup_wizard_screen.dart';
@@ -25,6 +26,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic> _status = {};
   bool _loading = true;
   bool _storageGranted = false;
+
+  AppStrings get s => AppStrings.of(context);
 
   @override
   void initState() {
@@ -60,26 +63,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(s.settings)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
-                _sectionHeader(theme, 'GENERAL'),
+                _sectionHeader(theme, s.generalSection),
                 SwitchListTile(
-                  title: const Text('Auto-start gateway'),
-                  subtitle: const Text('Start the gateway when the app opens'),
+                  title: Text(s.autoStartGateway),
+                  subtitle: Text(s.autoStartGatewayDesc),
                   value: _autoStart,
                   onChanged: (value) {
                     setState(() => _autoStart = value);
                     _prefs.autoStartGateway = value;
                   },
                 ),
+                // ── Language selector ──
                 ListTile(
-                  title: const Text('Battery Optimization'),
+                  title: Text(s.language),
+                  subtitle: Text(context.watch<LocaleProvider>().isFollowingSystem
+                      ? s.followSystem
+                      : (context.watch<LocaleProvider>().locale.languageCode == 'zh'
+                          ? s.simplifiedChinese
+                          : s.english)),
+                  leading: const Icon(Icons.language),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _showLanguageDialog,
+                ),
+                ListTile(
+                  title: Text(s.batteryOptimization),
                   subtitle: Text(_batteryOptimized
-                      ? 'Optimized (may kill background sessions)'
-                      : 'Unrestricted (recommended)'),
+                      ? s.batteryOptimized
+                      : s.batteryUnrestricted),
                   leading: const Icon(Icons.battery_alert),
                   trailing: _batteryOptimized
                       ? const Icon(Icons.warning, color: AppColors.statusAmber)
@@ -91,10 +106,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 ListTile(
-                  title: const Text('Setup Storage'),
+                  title: Text(s.setupStorage),
                   subtitle: Text(_storageGranted
-                      ? 'Granted — proot can access /sdcard. Revoke if not needed.'
-                      : 'Not granted (recommended) — tap to grant only if needed'),
+                      ? s.storageGranted
+                      : s.storageNotGranted),
                   leading: const Icon(Icons.sd_storage),
                   trailing: _storageGranted
                       ? const Icon(Icons.warning_amber, color: AppColors.statusAmber)
@@ -106,57 +121,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 const Divider(),
-                _sectionHeader(theme, 'SYSTEM INFO'),
+                _sectionHeader(theme, s.sysInfoSection),
                 ListTile(
-                  title: const Text('Architecture'),
+                  title: Text(s.architecture),
                   subtitle: Text(_arch),
                   leading: const Icon(Icons.memory),
                 ),
                 ListTile(
-                  title: const Text('PRoot path'),
+                  title: Text(s.prootPathLabel),
                   subtitle: Text(_prootPath),
                   leading: const Icon(Icons.folder),
                 ),
                 ListTile(
-                  title: const Text('Rootfs'),
+                  title: Text(s.rootfs),
                   subtitle: Text(_status['rootfsExists'] == true
-                      ? 'Installed'
-                      : 'Not installed'),
+                      ? s.installed
+                      : s.notInstalled),
                   leading: const Icon(Icons.storage),
                 ),
                 ListTile(
-                  title: const Text('Python'),
+                  title: Text(s.pythonLabel),
                   subtitle: Text(_status['pythonInstalled'] == true
-                      ? 'Installed'
-                      : 'Not installed'),
+                      ? s.installed
+                      : s.notInstalled),
                   leading: const Icon(Icons.code),
                 ),
                 ListTile(
-                  title: const Text('Hermes Agent'),
+                  title: Text(s.hermesAgentLabel),
                   subtitle: Text(_status['hermesInstalled'] == true
-                      ? 'Installed'
-                      : 'Not installed'),
+                      ? s.installed
+                      : s.notInstalled),
                   leading: const Icon(Icons.cloud),
                 ),
                 const Divider(),
-                _sectionHeader(theme, 'MAINTENANCE'),
+                _sectionHeader(theme, s.maintenanceSection),
                 ListTile(
-                  title: const Text('Export Snapshot'),
-                  subtitle: const Text('Backup config to Downloads'),
+                  title: Text(s.exportSnapshot),
+                  subtitle: Text(s.exportSnapshotDesc),
                   leading: const Icon(Icons.upload_file),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _exportSnapshot,
                 ),
                 ListTile(
-                  title: const Text('Import Snapshot'),
-                  subtitle: const Text('Restore config from backup'),
+                  title: Text(s.importSnapshot),
+                  subtitle: Text(s.importSnapshotDesc),
                   leading: const Icon(Icons.download),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _importSnapshot,
                 ),
                 ListTile(
-                  title: const Text('Re-run setup'),
-                  subtitle: const Text('Reinstall or repair the environment'),
+                  title: Text(s.rerunSetup),
+                  subtitle: Text(s.rerunSetupDesc),
                   leading: const Icon(Icons.build),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).pushReplacement(
@@ -166,9 +181,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(),
-                _sectionHeader(theme, 'ABOUT'),
+                _sectionHeader(theme, s.aboutSection),
                 const ListTile(
-                  title: Text('Hermes Agent'),
+                  title: Text('Hermes Agent'), // keep brand name
                   subtitle: Text(
                     'AI Gateway for Android\nVersion ${AppConstants.version}',
                   ),
@@ -176,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   isThreeLine: true,
                 ),
                 ListTile(
-                  title: const Text('GitHub'),
+                  title: Text(s.github),
                   subtitle: const Text('nousresearch/hermes-agent-mobile'),
                   leading: const Icon(Icons.code),
                   trailing: const Icon(Icons.open_in_new, size: 18),
@@ -186,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 ListTile(
-                  title: const Text('Contact'),
+                  title: Text(s.contact),
                   subtitle: const Text(AppConstants.authorEmail),
                   leading: const Icon(Icons.email),
                   trailing: const Icon(Icons.open_in_new, size: 18),
@@ -194,13 +209,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Uri.parse('mailto:${AppConstants.authorEmail}'),
                   ),
                 ),
-                const ListTile(
-                  title: Text('License'),
+                ListTile(
+                  title: Text(s.licenseLabel),
                   subtitle: Text(AppConstants.license),
                   leading: Icon(Icons.description),
                 ),
               ],
             ),
+    );
+  }
+
+  void _showLanguageDialog() {
+    final lp = context.read<LocaleProvider>();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(s.language),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String?>(
+                title: Text(s.followSystem),
+                value: null,
+                groupValue: lp.languageCode,
+                onChanged: (v) { lp.followSystem(); Navigator.pop(ctx); },
+              ),
+              RadioListTile<String?>(
+                title: const Text('简体中文'),
+                value: 'zh',
+                groupValue: lp.languageCode,
+                onChanged: (v) { lp.toChinese(); Navigator.pop(ctx); },
+              ),
+              RadioListTile<String?>(
+                title: const Text('English'),
+                value: 'en',
+                groupValue: lp.languageCode,
+                onChanged: (v) { lp.toEnglish(); Navigator.pop(ctx); },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -231,12 +281,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await File(path).writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Snapshot saved to $path')),
+        SnackBar(content: Text(s.snapshotSaved.replaceAll(r'$path', path))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
+        SnackBar(content: Text(s.exportFailed.replaceAll(r'$e', e.toString()))),
       );
     }
   }
@@ -248,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await file.exists()) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No snapshot found at $path')),
+          SnackBar(content: Text(s.noSnapshotFound.replaceAll(r'$path', path))),
         );
         return;
       }
@@ -269,7 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $e')),
+        SnackBar(content: Text(s.importFailed.replaceAll(r'$e', e.toString()))),
       );
     }
   }

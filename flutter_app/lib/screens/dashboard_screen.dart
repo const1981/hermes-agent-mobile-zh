@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../constants.dart';
+import '../l10n/app_strings.dart';
 import '../providers/gateway_provider.dart';
 import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
@@ -14,13 +15,17 @@ import 'settings_screen.dart';
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  // ── i18n helper ───────────────────────
+  AppStrings s(BuildContext ctx) => AppStrings.of(ctx);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hermes Agent'),
+        title: Text(s.appName),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -40,7 +45,7 @@ class DashboardScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Text(
-                'QUICK ACTIONS',
+                s.quickActions,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -50,8 +55,8 @@ class DashboardScreen extends StatelessWidget {
             ),
             _buildActionCard(
               theme,
-              'Onboarding',
-              'Configure API keys and binding',
+              s.onboardingTitle,
+              s.onboardingDesc,
               icon: Icons.rocket_launch,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -59,8 +64,8 @@ class DashboardScreen extends StatelessWidget {
             ),
             _buildActionCard(
               theme,
-              'Configure',
-              'Edit gateway settings',
+              s.configureTitle,
+              s.configureDesc,
               icon: Icons.tune,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ConfigureScreen()),
@@ -68,8 +73,8 @@ class DashboardScreen extends StatelessWidget {
             ),
             _buildActionCard(
               theme,
-              'Terminal',
-              'Open a proot shell',
+              s.terminalTitle,
+              s.terminalDesc,
               icon: Icons.terminal,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TerminalScreen()),
@@ -77,8 +82,8 @@ class DashboardScreen extends StatelessWidget {
             ),
             _buildActionCard(
               theme,
-              'Logs',
-              'View gateway logs',
+              s.logsTitle,
+              s.logsDesc,
               icon: Icons.article,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LogsScreen()),
@@ -88,7 +93,7 @@ class DashboardScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Text(
-                'STATUS',
+                s.statusSection,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -98,9 +103,9 @@ class DashboardScreen extends StatelessWidget {
             ),
             Consumer<GatewayProvider>(
               builder: (context, provider, _) {
-                return _buildStatusCard(
+                return                 _buildStatusCard(
                   theme,
-                  'Gateway',
+                  s.gateway,
                   provider.statusLabel,
                   icon: provider.isRunning ? Icons.cloud_done : Icons.cloud_off,
                   color: provider.statusColor,
