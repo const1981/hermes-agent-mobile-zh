@@ -420,12 +420,14 @@ class MainActivity : FlutterActivity() {
                             } else {
                                 ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
                             }
-                            val outDir: File = if (hasPermission) {
+                            val outDir: File
+                            if (hasPermission) {
                                 val d = File(Environment.getExternalStorageDirectory(), "Download")
                                 if (!d.exists()) d.mkdirs()
-                                d
+                                outDir = d
                             } else {
-                                getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+                                val ext = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                                outDir = ext ?: filesDir
                             }
                             val timeFmt = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
                             val zipFile = File(outDir, "hermes-backup-${timeFmt.format(Date())}.zip")
