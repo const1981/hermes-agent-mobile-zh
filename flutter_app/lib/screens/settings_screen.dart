@@ -192,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: Text(s.github),
-                  subtitle: const Text('nousresearch/hermes-agent-mobile'),
+                  subtitle: const Text(AppConstants.githubRepo),
                   leading: const Icon(Icons.code),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -214,6 +214,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Text(AppConstants.license),
                   leading: Icon(Icons.description),
                 ),
+                const SizedBox(height: 24),
+                Center(
+                  child: Text(
+                    '${AppConstants.appName} v${AppConstants.version}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: Text(
+                    '© 2026 ${AppConstants.authorName}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
     );

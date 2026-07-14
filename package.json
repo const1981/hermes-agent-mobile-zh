@@ -22,15 +22,15 @@
     "agent",
     "claude"
   ],
-  "author": "B_nair <van.bellinghen.brian@gmail.com>",
+  "author": "const1981",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nousresearch/hermes-agent-mobile.git"
+    "url": "git+https://github.com/const1981/hermes-agent-mobile-zh.git"
   },
-  "homepage": "https://github.com/nousresearch/hermes-agent-mobile#readme",
+  "homepage": "https://github.com/const1981/hermes-agent-mobile-zh#readme",
   "bugs": {
-    "url": "https://github.com/nousresearch/hermes-agent-mobile/issues"
+    "url": "https://github.com/const1981/hermes-agent-mobile-zh/issues"
   },
   "engines": {
     "node": ">=22.0.0"
