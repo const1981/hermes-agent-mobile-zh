@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
 
 # CI 跑在 GitHub 托管的 ubuntu-24.04 云端 runner（非本机 Windows）。
-# 该 runner 未预装 Android SDK；本 workflow 用官方 actions/setup-android 安装 cmdline-tools + 接受许可，
-# 再装 platform-tools / platform 36 / NDK（NDK 必须显式装，Gradle 不会自动装）。
+# 该 runner 未预装 Android SDK；本 workflow 用官方 android-actions/setup-android@v4 安装 cmdline-tools + 接受许可（默认已接受），
+# 再装 platform-tools / platform 35+36 / build-tools 36 / NDK（NDK 必须显式装，Gradle 不会自动装）。
+# 注：插件在 android/build.gradle 的 subprojects 里设 compileSdkVersion=35，所以 android-35 也要装。
 # 注意：ANDROID_SDK_ROOT 必须用绝对路径，不要写 $HOME/...（在 job env 里 $HOME 不会被展开）。
 
 env:
@@ -35,18 +36,17 @@ jobs:
           cache: true
 
       - name: Setup Android SDK (cmdline-tools + accept licenses)
-        uses: actions/setup-android@v4
+        uses: android-actions/setup-android@v4
 
-      - name: Install platform 36 + NDK
+      - name: Install SDK packages (platforms 35+36, build-tools, NDK)
         shell: bash
         run: |
           set -e
           SDK="$ANDROID_SDK_ROOT"
-          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
-          echo "sdkmanager = $SDKMANAGER"
-          "$SDKMANAGER" --version
-          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses
-          "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-36" "ndk;27.2.12479018"
+          # setup-android 已把 sdkmanager 加入 PATH，直接用即可（不再手搓解压，避开 classpath 坑）
+          sdkmanager --version
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
           echo "SDK 安装完成。"
 
       - name: Flutter pub get
