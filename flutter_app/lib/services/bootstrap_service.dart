@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
 import 'native_bridge.dart';
+import 'install_log.dart';
 
 class BootstrapService {
   final Dio _dio = Dio();
@@ -44,8 +45,29 @@ class BootstrapService {
 
   Future<void> runFullSetup({
     required void Function(SetupState) onProgress,
+    void Function(String)? onLog,
   }) async {
+    // 日志 helper：同时写文件 + 推给 UI 实时显示
+    void log(String line) {
+      InstallLog.append(line);
+      onLog?.call(line);
+    }
+
+    // 在 proot 里执行命令并记录：命令本身 + 输出 + 报错
+    Future<String> prootRun(String command, {int timeout = 900}) async {
+      log('\$ $command');
+      try {
+        final out = await NativeBridge.runInProot(command, timeout: timeout);
+        if (out.trim().isNotEmpty) log(out.trim());
+        return out;
+      } catch (e) {
+        log('✗ 命令失败: $e');
+        rethrow;
+      }
+    }
+
     try {
+      await InstallLog.init();
       try {
         await NativeBridge.startSetupService();
       } catch (_) {}
@@ -124,7 +146,7 @@ class BootstrapService {
         progress: 0.0,
         message: 'Fixing rootfs permissions...',
       ));
-      await NativeBridge.runInProot(
+      await prootRun(
         'chmod -R 755 /usr/bin /usr/sbin /bin /sbin '
         '/usr/local/bin /usr/local/sbin 2>/dev/null; '
         'chmod -R +x /usr/lib/apt/ /usr/lib/dpkg/ /usr/libexec/ '
@@ -142,7 +164,7 @@ class BootstrapService {
         message: '正在修复包数据库...',
       ));
       try {
-        await NativeBridge.runInProot(
+        await prootRun(
           'dpkg --configure -a 2>/dev/null || true',
           timeout: 300,
         );
@@ -154,7 +176,7 @@ class BootstrapService {
         progress: 0.1,
         message: '正在更新软件源列表...',
       ));
-      await NativeBridge.runInProot('apt-get update -y');
+      await prootRun('apt-get update -y');
 
       _updateSetupNotification('正在安装基础包...', progress: 52);
       onProgress(const SetupState(
@@ -162,11 +184,11 @@ class BootstrapService {
         progress: 0.15,
         message: '正在安装基础包...',
       ));
-      await NativeBridge.runInProot(
+      await prootRun(
         'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
         'echo "Etc/UTC" > /etc/timezone',
       );
-      await NativeBridge.runInProot(
+      await prootRun(
         'apt-get install -y --no-install-recommends '
         'ca-certificates git python3 python3-venv python3-pip curl wget',
       );
@@ -184,7 +206,7 @@ class BootstrapService {
             '正在克隆 Hermes Agent 仓库（第 $attempt/$maxCloneAttempts 次）...',
             progress: 70,
           );
-          await NativeBridge.runInProot(
+          await prootRun(
             'cd /root && rm -rf hermes-agent && '
             'git clone --depth 1 https://github.com/nousresearch/hermes-agent.git hermes-agent',
             timeout: 600,
@@ -203,13 +225,13 @@ class BootstrapService {
         message: '正在安装 Python 依赖...',
       ));
       // 1) create venv
-      await NativeBridge.runInProot(
+      await prootRun(
         'cd /root/hermes-agent && python3 -m venv venv',
         timeout: 120,
       );
       // 2) upgrade pip — ignore failure (proot may return nonzero even when ok)
       try {
-        await NativeBridge.runInProot(
+        await prootRun(
           'cd /root/hermes-agent && ./venv/bin/python -m pip install --upgrade pip',
           timeout: 300,
         );
@@ -217,13 +239,13 @@ class BootstrapService {
       // 3) install dependencies — repo uses pyproject.toml (no requirements.txt)
       //    try requirements.txt first, fallback to pyproject.toml editable install
       try {
-        await NativeBridge.runInProot(
+        await prootRun(
           'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt',
           timeout: 1800,
         );
       } catch (_) {
         // requirements.txt missing (repo uses pyproject.toml); install from it
-        await NativeBridge.runInProot(
+        await prootRun(
           'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]"',
           timeout: 1800,
         );
@@ -235,7 +257,7 @@ class BootstrapService {
         progress: 0.9,
         message: '正在验证 Hermes Agent 安装...',
       ));
-      await NativeBridge.runInProot(
+      await prootRun(
         'test -f /root/hermes-agent/gateway/run.py && echo hermes_ready',
       );
       onProgress(const SetupState(
@@ -259,12 +281,14 @@ class BootstrapService {
       ));
     } on DioException catch (e) {
       _stopSetupService();
+      log('✗ 下载失败: ${e.message}');
       onProgress(SetupState(
         step: SetupStep.error,
         error: '下载失败：${e.message}。请检查网络连接。',
       ));
     } catch (e) {
       _stopSetupService();
+      log('✗ 安装失败: $e');
       onProgress(SetupState(
         step: SetupStep.error,
         error: '安装失败：$e',

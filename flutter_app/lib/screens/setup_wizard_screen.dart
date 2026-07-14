@@ -4,6 +4,8 @@ import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
+import '../services/native_bridge.dart';
+import '../services/install_log.dart';
 import '../widgets/progress_step.dart';
 import 'dashboard_screen.dart';
 
@@ -60,6 +62,25 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   Expanded(
                     child: _buildSteps(state, theme),
                   ),
+                  if (provider.logLines.isNotEmpty && !state.isComplete) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 130,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ListView.builder(
+                        reverse: true,
+                        itemCount: provider.logLines.length,
+                        itemBuilder: (_, i) => Text(
+                          provider.logLines[i],
+                          style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                        ),
+                      ),
+                    ),
+                  ],
                   if (state.hasError) ...[
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 160),
@@ -86,6 +107,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         ),
                       ),
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => _showLog(context),
+                        icon: const Icon(Icons.article_outlined, size: 18),
+                        label: const Text('查看完整安装日志'),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                   ],
                   if (state.isComplete)
@@ -103,8 +132,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       child: FilledButton.icon(
                         onPressed: provider.isRunning
                             ? null
-                            : () {
+                            : () async {
                                 setState(() => _started = true);
+                                await _ensurePermissions();
                                 provider.runSetup();
                               },
                         icon: const Icon(Icons.download),
@@ -175,6 +205,44 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   void _goToDashboard(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
+    );
+  }
+
+  /// 进安装向导第一屏就开始申请所有需要的权限（存储 + 电池白名单）。
+  /// 通知权限已在 App 启动时自动申请。
+  Future<void> _ensurePermissions() async {
+    try {
+      final hasStorage = await NativeBridge.hasStoragePermission();
+      if (!hasStorage) await NativeBridge.requestStoragePermission();
+    } catch (_) {}
+    try {
+      final batteryOpt = await NativeBridge.isBatteryOptimized();
+      if (batteryOpt) await NativeBridge.requestBatteryOptimization();
+    } catch (_) {}
+  }
+
+  /// 弹出完整安装日志（失败排查用）
+  Future<void> _showLog(BuildContext context) async {
+    final log = await InstallLog.readAll();
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('安装日志'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 420,
+          child: SingleChildScrollView(
+            child: SelectableText(log.isEmpty ? '（暂无日志）' : log),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
     );
   }
 }

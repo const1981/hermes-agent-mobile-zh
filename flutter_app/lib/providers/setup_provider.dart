@@ -6,9 +6,11 @@ class SetupProvider extends ChangeNotifier {
   final BootstrapService _bootstrapService = BootstrapService();
   SetupState _state = const SetupState();
   bool _isRunning = false;
+  final List<String> _logLines = [];
 
   SetupState get state => _state;
   bool get isRunning => _isRunning;
+  List<String> get logLines => List.unmodifiable(_logLines);
 
   Future<bool> checkIfSetupNeeded() async {
     _state = await _bootstrapService.checkStatus();
@@ -19,11 +21,16 @@ class SetupProvider extends ChangeNotifier {
   Future<void> runSetup() async {
     if (_isRunning) return;
     _isRunning = true;
+    _logLines.clear();
     notifyListeners();
 
     await _bootstrapService.runFullSetup(
       onProgress: (state) {
         _state = state;
+        notifyListeners();
+      },
+      onLog: (line) {
+        _logLines.add(line);
         notifyListeners();
       },
     );
