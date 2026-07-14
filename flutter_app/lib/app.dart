@@ -87,7 +87,7 @@ class HermesAgentApp extends StatelessWidget {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 0,
         color: AppColors.darkSurface,
         shape: RoundedRectangleBorder(
@@ -157,7 +157,7 @@ class HermesAgentApp extends StatelessWidget {
         color: AppColors.darkBorder,
         space: 1,
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         backgroundColor: AppColors.darkSurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -218,7 +218,7 @@ class HermesAgentApp extends StatelessWidget {
           color: const Color(0xFF0A0A0A),
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 0,
         color: AppColors.lightBg,
         shape: RoundedRectangleBorder(
@@ -288,7 +288,7 @@ class HermesAgentApp extends StatelessWidget {
         color: AppColors.lightBorder,
         space: 1,
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         backgroundColor: AppColors.lightBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
