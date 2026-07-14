@@ -67,7 +67,8 @@ class NativeBridge {
   }
 
   static Future<String> backupDataDir() async {
-    return await _channel.invokeMethod<String>('backupDataDir');
+    final r = await _channel.invokeMethod<String>('backupDataDir');
+    return r ?? '';
   }
 
   static Future<bool> hasStoragePermission() async {

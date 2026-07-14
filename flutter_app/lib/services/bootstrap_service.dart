@@ -223,7 +223,7 @@ class BootstrapService {
           'sed -i "s|archive.ubuntu.com|${AppConstants.aptMirrorHost}|g; '
           's|security.ubuntu.com|${AppConstants.aptMirrorHost}|g" '
           '/etc/apt/sources.list '
-          '$(ls /etc/apt/sources.list.d/*.list 2>/dev/null) 2>/dev/null; '
+          '\$(ls /etc/apt/sources.list.d/*.list 2>/dev/null) 2>/dev/null; '
           'echo apt_mirror_switched',
           timeout: 120,
         );
