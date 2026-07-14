@@ -214,11 +214,20 @@ class BootstrapService {
           timeout: 300,
         );
       } catch (_) {}
-      // 3) install dependencies via venv python directly (no `source activate`)
-      await NativeBridge.runInProot(
-        'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt',
-        timeout: 1800,
-      );
+      // 3) install dependencies — repo uses pyproject.toml (no requirements.txt)
+      //    try requirements.txt first, fallback to pyproject.toml editable install
+      try {
+        await NativeBridge.runInProot(
+          'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt',
+          timeout: 1800,
+        );
+      } catch (_) {
+        // requirements.txt missing (repo uses pyproject.toml); install from it
+        await NativeBridge.runInProot(
+          'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]"',
+          timeout: 1800,
+        );
+      }
 
       _updateSetupNotification('正在验证安装...', progress: 96);
       onProgress(const SetupState(
