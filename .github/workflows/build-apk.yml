@@ -5,21 +5,19 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# 注意：本仓库的 GitHub Actions 实际跑在【本机 Windows 自托管 runner】上
-# （日志路径 C:\Users\Administrator\AppData\Local\Android\Sdk），不是 GitHub 云 ubuntu。
-# 该机器有 Android Studio（D:\ProgramData\apk），但全机缺命令行版 cmdline-tools/sdkmanager，
-# 且 SDK 的 platforms/android-36 是半残目录、ndk 未安装。
-# 因此本 workflow 在构建前自行修复 SDK：清 .temp → 下载 cmdline-tools → 重装 platform 36 → 装 NDK。
-#
-# 重要：本机 runner 默认 shell 是 Git-Bash（没有 powershell！），所以下面修复步骤必须用 bash。
-# 调用 sdkmanager.bat 时用 `cmd //c`（双斜杠是 git-bash 把 //c 转成 /c 的写法）。
+# 本仓库的 GitHub Actions 跑在 GitHub 托管的 ubuntu-24.04 云端 runner 上
+# （日志可见：`Image Release: ubuntu24/...`、`/home/runner/work/...`、`shell: /usr/bin/bash`）。
+# 该 runner **未预装 Android SDK**，所以本 workflow 自行安装：
+#   下载 commandlinetools-linux → 解压 → sdkmanager 接受协议 → 装 platform-tools / platform 36 / NDK。
+# 注意：NDK 必须显式装（Gradle 不会自动装）；platform 36 与 build-tools 由 AGP 在构建时按需自动下载。
+# 之前曾误设成 Windows 路径 + commandlinetools-win + `cmd //c sdkmanager.bat`，在 Linux 上 `cmd` 不存在而失败。
 
 env:
-  ANDROID_SDK_ROOT: "C:/Users/Administrator/AppData/Local/Android/Sdk"
+  ANDROID_SDK_ROOT: "$HOME/Android/Sdk"
 
 jobs:
   build:
-    runs-on: ubuntu-latest   # 被本机 self-hosted Windows runner 拦截执行
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,37 +35,41 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Repair Android SDK (clean .temp, install cmdline-tools + NDK + platform 36)
+      - name: Install Android SDK (cmdline-tools + platform 36 + NDK)
         shell: bash
         run: |
+          set -e
           SDK="$ANDROID_SDK_ROOT"
           echo "SDK root = $SDK"
+          mkdir -p "$SDK"
 
-          # 1) 删除陈旧 .temp，否则 sdkmanager 解压 android-36 会抛 FileAlreadyExistsException (ic_close.xml)
-          rm -rf "$SDK/.temp"
-
-          # 2) 确保有可用的 sdkmanager（本机 cmdline-tools/latest/bin 为空）
-          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager.bat"
-          if [ ! -f "$SDKMANAGER" ]; then
-            echo "cmdline-tools 缺失 -> 从官网下载 commandlinetools ..."
-            ZIP="$RUNNER_TEMP/cmdline-tools.zip"
-            curl -fsSL -o "$ZIP" "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip"
-            rm -rf "$RUNNER_TEMP/ct"
-            mkdir -p "$RUNNER_TEMP/ct"
+          # 1) 下载并解压 Linux 版 commandline-tools
+          ZIP="$RUNNER_TEMP/cmdline-tools.zip"
+          curl -fsSL -o "$ZIP" "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+          rm -rf "$RUNNER_TEMP/ct"
+          mkdir -p "$RUNNER_TEMP/ct"
+          if command -v unzip >/dev/null 2>&1; then
+            unzip -q "$ZIP" -d "$RUNNER_TEMP/ct"
+          else
             ( cd "$RUNNER_TEMP/ct" && jar xf "$ZIP" )
-            rm -rf "$SDK/cmdline-tools/latest"
-            mkdir -p "$SDK/cmdline-tools"
-            mv "$RUNNER_TEMP/ct/cmdline-tools" "$SDK/cmdline-tools/latest"
-            rm -rf "$RUNNER_TEMP/ct"
           fi
+          rm -rf "$SDK/cmdline-tools/latest"
+          mkdir -p "$SDK/cmdline-tools"
+          mv "$RUNNER_TEMP/ct/cmdline-tools" "$SDK/cmdline-tools/latest"
+          rm -rf "$RUNNER_TEMP/ct"
 
-          # 3) 删掉半残的 platform 36，让 sdkmanager 重新装一份干净的
-          rm -rf "$SDK/platforms/android-36"
+          # 2) sdkmanager（Linux 上是 shell 脚本，直接调用，不要走 cmd）
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          chmod +x "$SDKMANAGER"
 
-          # 4) 接受协议并安装所需包（Gradle 不会自动装 NDK，必须显式装）
-          yes | cmd //c "\"$SDKMANAGER\" --sdk_root=\"$SDK\" --licenses"
-          cmd //c "\"$SDKMANAGER\" --sdk_root=\"$SDK\" \"platforms;android-36\" \"ndk;27.2.12479018\""
-          echo "SDK 修复完成。"
+          # 3) 接受协议
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses
+
+          # 4) 装所需包（platform-tools 便于 adb；platform 36 主目标；NDK 必须显式装）
+          "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-36" "ndk;27.2.12479018"
+
+          echo "SDK 安装完成。"
+          "$SDKMANAGER" --sdk_root="$SDK" --list_installed || true
 
       - name: Flutter pub get
         working-directory: flutter_app
