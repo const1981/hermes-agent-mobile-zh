@@ -217,6 +217,16 @@ class BootstrapService {
           progress: 0.1,
           message: '正在更新软件源列表...',
         ));
+        // 将 apt 系统源替换为阿里云国内源（Ubuntu 官方源国内极慢/超时，
+        // 是手机第四步卡顿的常见原因）。arm64 用 ubuntu-ports 仓库。
+        await prootRun(
+          'sed -i "s|archive.ubuntu.com|${AppConstants.aptMirrorHost}|g; '
+          's|security.ubuntu.com|${AppConstants.aptMirrorHost}|g" '
+          '/etc/apt/sources.list '
+          '$(ls /etc/apt/sources.list.d/*.list 2>/dev/null) 2>/dev/null; '
+          'echo apt_mirror_switched',
+          timeout: 120,
+        );
         await prootRun('apt-get update -y');
 
         _updateSetupNotification('正在安装基础包...', progress: 52);
@@ -316,17 +326,26 @@ class BootstrapService {
           );
         } catch (_) {}
         // 3) install dependencies — repo uses pyproject.toml (no requirements.txt)
-        //    走国内清华源；先试 requirements.txt，失败回退 pyproject.toml
+        //    走国内清华源（首选）；清华失败时自动切华为云兜底
+        const pipPrimary = AppConstants.pipIndexUrl;
+        const pipFallback = AppConstants.pipFallbackUrl;
         try {
           await prootRun(
-            'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i ${AppConstants.pipIndexUrl}',
+            'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i $pipPrimary',
             timeout: 1800,
           );
         } catch (_) {
-          await prootRun(
-            'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]" -i ${AppConstants.pipIndexUrl}',
-            timeout: 1800,
-          );
+          try {
+            await prootRun(
+              'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i $pipFallback',
+              timeout: 1800,
+            );
+          } catch (_) {
+            await prootRun(
+              'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]" -i $pipPrimary',
+              timeout: 1800,
+            );
+          }
         }
       } else {
         log('ℹ venv 已存在，跳过依赖安装');

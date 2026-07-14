@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/setup_provider.dart';
 import 'providers/gateway_provider.dart';
 import 'providers/locale_provider.dart';
+import 'providers/config_provider.dart';
 import 'screens/splash_screen.dart';
 
 /// Centralized color palette for the entire app.
@@ -44,6 +45,7 @@ class HermesAgentApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SetupProvider()),
         ChangeNotifierProvider(create: (_) => GatewayProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()..init()),
+        ChangeNotifierProvider(create: (_) => ConfigProvider()),
       ],
       child: Consumer<LocaleProvider>(
         builder: (context, localeProv, _) {

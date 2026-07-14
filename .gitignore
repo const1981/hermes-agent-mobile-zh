@@ -1,0 +1,11 @@
+# 构建产物 / 临时下载（APK 走 CI artifact 交付，不入库；老版本 APK 本地留存著作权用）
+apk_out/
+dl_tmp/
+*.apk
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/

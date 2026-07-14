@@ -1,16 +1,13 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:xterm/xterm.dart';
-import 'package:flutter_pty/flutter_pty.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/native_bridge.dart';
-import '../services/terminal_service.dart';
-import '../widgets/terminal_toolbar.dart';
+import '../constants.dart';
+import '../l10n/app_strings.dart';
+import '../models/provider_template.dart';
+import '../providers/config_provider.dart';
 
-/// Runs `hermes setup` in a terminal so the user can manage
-/// gateway settings. Accessible from the dashboard.
+/// 配置页（对标 1Panel）：左侧导航 [频道 | 模型 | 技能 | 设置]，右侧原生表单。
+/// 不再使用内置终端跑 hermes setup 命令行。
 class ConfigureScreen extends StatefulWidget {
   const ConfigureScreen({super.key});
 
@@ -19,344 +16,452 @@ class ConfigureScreen extends StatefulWidget {
 }
 
 class _ConfigureScreenState extends State<ConfigureScreen> {
-  late final Terminal _terminal;
-  late final TerminalController _controller;
-  Pty? _pty;
-  bool _loading = true;
-  bool _finished = false;
-  String? _error;
-  final _ctrlNotifier = ValueNotifier<bool>(false);
-  final _altNotifier = ValueNotifier<bool>(false);
-  static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
-  static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
+  int _selectedIndex = 1; // 默认停在「模型」
 
-  static const _fontFallback = [
-    'monospace',
-    'Noto Sans Mono',
-    'Noto Sans Mono CJK SC',
-    'Noto Sans Mono CJK TC',
-    'Noto Sans Mono CJK JP',
-    'Noto Color Emoji',
-    'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
-    'sans-serif',
+  AppStrings get s => AppStrings.of(context);
+
+  static const _navItems = [
+    (icon: Icons.forum_outlined, label: '频道'),
+    (icon: Icons.hub_outlined, label: '模型'),
+    (icon: Icons.extension_outlined, label: '技能'),
+    (icon: Icons.settings_outlined, label: '设置'),
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _terminal = Terminal(maxLines: 10000);
-    _controller = TerminalController();
-    NativeBridge.startTerminalService();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startConfigure();
-    });
-  }
-
-  Future<void> _startConfigure() async {
-    _pty?.kill();
-    _pty = null;
-    try {
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
-      final config = await TerminalService.getProotShellConfig();
-      final args = TerminalService.buildProotArgs(
-        config,
-        columns: _terminal.viewWidth,
-        rows: _terminal.viewHeight,
-      );
-
-      final configureArgs = List<String>.from(args);
-      configureArgs.removeLast(); // remove '-l'
-      configureArgs.removeLast(); // remove '/bin/bash'
-      configureArgs.addAll([
-        '/bin/bash', '-lc',
-        'echo "=== Hermes Agent Configure ===" && '
-        'echo "Manage your gateway settings." && '
-        'echo "" && '
-        'cd /root/hermes-agent && source venv/bin/activate && python -m hermes_cli.main setup; '
-        'echo "" && echo "Configuration complete! You can close this screen."',
-      ]);
-
-      _pty = Pty.start(
-        config['executable']!,
-        arguments: configureArgs,
-        environment: TerminalService.buildHostEnv(config),
-        columns: _terminal.viewWidth,
-        rows: _terminal.viewHeight,
-      );
-
-      _pty!.output.cast<List<int>>().listen((data) {
-        _terminal.write(utf8.decode(data, allowMalformed: true));
-      });
-
-      _pty!.exitCode.then((code) {
-        _terminal.write('\r\n[Configure exited with code $code]\r\n');
-        if (mounted) {
-          setState(() => _finished = true);
-        }
-      });
-
-      _terminal.onOutput = (data) {
-        if (_ctrlNotifier.value && data.length == 1) {
-          final code = data.toLowerCase().codeUnitAt(0);
-          if (code >= 97 && code <= 122) {
-            _pty?.write(Uint8List.fromList([code - 96]));
-            _ctrlNotifier.value = false;
-            return;
-          }
-        }
-        if (_altNotifier.value && data.isNotEmpty) {
-          _pty?.write(utf8.encode('\x1b$data'));
-          _altNotifier.value = false;
-          return;
-        }
-        _pty?.write(utf8.encode(data));
-      };
-
-      _terminal.onResize = (w, h, pw, ph) {
-        _pty?.resize(h, w);
-      };
-
-      setState(() => _loading = false);
-    } catch (e) {
-      setState(() {
-        _loading = false;
-        _error = 'Failed to start configure: $e';
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrlNotifier.dispose();
-    _altNotifier.dispose();
-    _controller.dispose();
-    _pty?.kill();
-    NativeBridge.stopTerminalService();
-    super.dispose();
-  }
-
-  String? _getSelectedText() {
-    final selection = _controller.selection;
-    if (selection == null || selection.isCollapsed) return null;
-
-    final range = selection.normalized;
-    final sb = StringBuffer();
-    for (int y = range.begin.y; y <= range.end.y; y++) {
-      if (y >= _terminal.buffer.lines.length) break;
-      final line = _terminal.buffer.lines[y];
-      final from = (y == range.begin.y) ? range.begin.x : 0;
-      final to = (y == range.end.y) ? range.end.x : null;
-      sb.write(line.getText(from, to));
-      if (y < range.end.y) sb.writeln();
-    }
-    final text = sb.toString().trim();
-    return text.isEmpty ? null : text;
-  }
-
-  String? _extractUrl(String text) {
-    final clean = text.replaceAll(_boxDrawing, '').replaceAll(RegExp(r'\s+'), '');
-    final parts = clean.split(RegExp(r'(?=https?://)'));
-    String? best;
-    for (final part in parts) {
-      final match = _anyUrlRegex.firstMatch(part);
-      if (match != null) {
-        final url = match.group(0)!;
-        if (best == null || url.length > best.length) {
-          best = url;
-        }
-      }
-    }
-    return best;
-  }
-
-  void _copySelection() {
-    final text = _getSelectedText();
-    if (text == null) return;
-
-    Clipboard.setData(ClipboardData(text: text));
-
-    final url = _extractUrl(text);
-    if (url != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Copied to clipboard'),
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Open',
-            onPressed: () {
-              final uri = Uri.tryParse(url);
-              if (uri != null) {
-                launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copied to clipboard'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-  }
-
-  void _openSelection() {
-    final text = _getSelectedText();
-    if (text == null) return;
-
-    final url = _extractUrl(text);
-    if (url != null) {
-      final uri = Uri.tryParse(url);
-      if (uri != null) {
-        launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No URL found in selection'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Future<void> _paste() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && data!.text!.isNotEmpty) {
-      _pty?.write(utf8.encode(data.text!));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hermes Agent Configure'),
+        title: const Text('Hermes 配置'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy),
-            tooltip: 'Copy',
-            onPressed: _copySelection,
+      ),
+      body: Row(
+        children: [
+          // 左侧导航（手机上用窄 rail）
+          NavigationRail(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+            labelType: NavigationRailLabelType.all,
+            destinations: [
+              for (final item in _navItems)
+                NavigationRailDestination(
+                  icon: Icon(item.icon),
+                  label: Text(item.label),
+                ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser),
-            tooltip: 'Open URL',
-            onPressed: _openSelection,
-          ),
-          IconButton(
-            icon: const Icon(Icons.paste),
-            tooltip: 'Paste',
-            onPressed: _paste,
+          const VerticalDivider(width: 1, thickness: 1),
+          // 右侧内容
+          Expanded(
+            child: _selectedIndex == 0
+                ? const _ChannelPanel()
+                : _selectedIndex == 1
+                    ? const _ModelPanel()
+                    : _selectedIndex == 2
+                        ? const _SkillPanel()
+                        : const _SettingPanel(),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_loading)
-            const Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Starting configure...'),
-                  ],
-                ),
+    );
+  }
+}
+
+/// 频道：微信 / 飞书 / Telegram 等
+class _ChannelPanel extends StatelessWidget {
+  const _ChannelPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg = context.watch<ConfigProvider>();
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionTitle(icon: '💬', title: '微信'),
+        SwitchListTile(
+          title: const Text('启用微信对接'),
+          subtitle: const Text('扫码后自动重启容器'),
+          value: cfg.wechatEnabled,
+          onChanged: (v) => cfg.setWechat(enabled: v),
+        ),
+        if (cfg.wechatEnabled) ...[
+          _TextFieldTile(
+            label: 'Token',
+            hint: '微信公众平台 Token',
+            value: cfg.wechatToken,
+            onChanged: (v) => cfg.setWechat(token: v),
+            obscure: true,
+          ),
+          _TextFieldTile(
+            label: 'EncodingAESKey',
+            hint: '消息加密密钥',
+            value: cfg.wechatEncodingAesKey,
+            onChanged: (v) => cfg.setWechat(aesKey: v),
+            obscure: true,
+          ),
+        ],
+        const Divider(height: 24),
+        _SectionTitle(icon: '📋', title: '飞书'),
+        SwitchListTile(
+          title: const Text('启用飞书对接'),
+          subtitle: const Text('企业自建应用 Webhook'),
+          value: cfg.feishuEnabled,
+          onChanged: (v) => cfg.setFeishu(enabled: v),
+        ),
+        if (cfg.feishuEnabled) ...[
+          _TextFieldTile(
+            label: 'App ID',
+            hint: 'cli_xxx',
+            value: cfg.feishuAppId,
+            onChanged: (v) => cfg.setFeishu(appId: v),
+          ),
+          _TextFieldTile(
+            label: 'App Secret',
+            hint: '应用密钥',
+            value: cfg.feishuAppSecret,
+            onChanged: (v) => cfg.setFeishu(appSecret: v),
+            obscure: true,
+          ),
+        ],
+        const Divider(height: 24),
+        _SectionTitle(icon: '✈️', title: 'Telegram'),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text('在 .env 中配置 TELEGRAM_BOT_TOKEN 后重启网关即可。',
+              style: TextStyle(color: Colors.grey)),
+        ),
+        const SizedBox(height: 16),
+        const Text('配置保存后需重启网关生效（设置页 → 重启网关）。',
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+}
+
+/// 模型：供应商卡片 + 只填 Key
+class _ModelPanel extends StatelessWidget {
+  const _ModelPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg = context.watch<ConfigProvider>();
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionTitle(icon: '🤖', title: '选择供应商'),
+        const SizedBox(height: 8),
+        // 供应商网格（卡片）
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          childAspectRatio: 2.6,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          children: [
+            for (final t in kProviderTemplates)
+              _ProviderCard(
+                template: t,
+                selected: !cfg.useCustomProvider && cfg.providerId == t.id,
+                onTap: () => cfg.selectProvider(t.id),
               ),
-            )
-          else if (_error != null)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _loading = true;
-                            _error = null;
-                            _finished = false;
-                          });
-                          _startConfigure();
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
+            // 自定义
+            _ProviderCard(
+              template: const ProviderTemplate(
+                id: 'custom',
+                name: '自定义',
+                icon: '➕',
+                baseUrl: '',
+                defaultModel: '',
+                models: const [],
+                description: '手动填写全部',
               ),
-            )
-          else ...[
-            Expanded(
-              child: TerminalView(
-                _terminal,
-                controller: _controller,
-                textStyle: const TerminalStyle(
-                  fontSize: 11,
-                  height: 1.0,
-                  fontFamily: 'DejaVuSansMono',
-                  fontFamilyFallback: _fontFallback,
-                ),
-              ),
-            ),
-            TerminalToolbar(
-              pty: _pty,
-              ctrlNotifier: _ctrlNotifier,
-              altNotifier: _altNotifier,
+              selected: cfg.useCustomProvider,
+              onTap: () => cfg.setCustomProvider(),
             ),
           ],
-          if (_finished)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.check),
-                  label: const Text('Done'),
+        ),
+        const SizedBox(height: 20),
+        // 表单
+        if (cfg.useCustomProvider) ...[
+          _TextFieldTile(
+            label: 'Base URL',
+            hint: 'https://your-endpoint/v1',
+            value: cfg.baseUrl,
+            onChanged: cfg.setBaseUrl,
+          ),
+          _TextFieldTile(
+            label: '模型名称',
+            hint: 'model-name',
+            value: cfg.model,
+            onChanged: cfg.setModel,
+          ),
+        ] else ...[
+          // 预设供应商：展示自动带好的地址 + 模型下拉
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Base URL（已自动填入）',
+                    style: theme.textTheme.labelSmall),
+                const SizedBox(height: 4),
+                Text(cfg.baseUrl, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 12),
+                Text('模型', style: theme.textTheme.labelSmall),
+                const SizedBox(height: 4),
+                DropdownButtonFormField<String>(
+                  value: cfg.model,
+                  items: (cfg.selectedTemplate?.models ?? [cfg.model])
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (v) => cfg.setModel(v!),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        // API Key（唯一需手填）
+        _TextFieldTile(
+          label: cfg.selectedTemplate?.keyLabel ?? 'API Key',
+          hint: cfg.selectedTemplate?.keyHint ?? 'sk-...',
+          value: cfg.apiKey,
+          onChanged: cfg.setApiKey,
+          obscure: true,
+          suffix: cfg.selectedTemplate?.docUrl != null
+              ? IconButton(
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  tooltip: '获取 Key',
+                  onPressed: () => launchUrl(
+                    Uri.parse(cfg.selectedTemplate!.docUrl!),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: () {
+            // TODO: 写盘 ~/.hermes/config.yaml + .env（接 NativeBridge）
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('配置已保存（写盘逻辑待接入）')),
+            );
+          },
+          icon: const Icon(Icons.save),
+          label: const Text('保存配置'),
+        ),
+        const SizedBox(height: 8),
+        const Text('选好供应商、填 Key → 保存，无需进命令行。',
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+}
+
+class _ProviderCard extends StatelessWidget {
+  final ProviderTemplate template;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ProviderCard({
+    required this.template,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Text(template.icon, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  template.name,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (selected) Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 技能：开关
+class _SkillPanel extends StatelessWidget {
+  const _SkillPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg = context.watch<ConfigProvider>();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionTitle(icon: '🧩', title: '功能技能'),
+        SwitchListTile(
+          title: const Text('联网搜索'),
+          subtitle: const Text('允许 Agent 实时检索网络'),
+          value: cfg.skillWebSearch,
+          onChanged: (v) => cfg.setSkill(webSearch: v),
+        ),
+        SwitchListTile(
+          title: const Text('代码执行'),
+          subtitle: const Text('允许运行生成的代码'),
+          value: cfg.skillCodeRun,
+          onChanged: (v) => cfg.setSkill(codeRun: v),
+        ),
+        SwitchListTile(
+          title: const Text('长期记忆'),
+          subtitle: const Text('跨会话记住上下文'),
+          value: cfg.skillMemory,
+          onChanged: (v) => cfg.setSkill(memory: v),
+        ),
+      ],
+    );
+  }
+}
+
+/// 设置：通用
+class _SettingPanel extends StatelessWidget {
+  const _SettingPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg = context.watch<ConfigProvider>();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionTitle(icon: '⚙️', title: '通用设置'),
+        SwitchListTile(
+          title: const Text('启动后自动开网关'),
+          value: cfg.autoStartGateway,
+          onChanged: (v) => cfg.setSettings(autoStart: v),
+        ),
+        ListTile(
+          title: const Text('最大 Token 数'),
+          subtitle: Text('${cfg.maxTokens}'),
+          trailing: SizedBox(
+            width: 160,
+            child: Slider(
+              value: cfg.maxTokens.toDouble(),
+              min: 1024,
+              max: 16384,
+              divisions: 15,
+              onChanged: (v) => cfg.setSettings(maxTokens: v.round()),
             ),
-        ],
+          ),
+        ),
+        const Divider(height: 24),
+        const _AboutCard(),
+      ],
+    );
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${AppConstants.appName} v${AppConstants.version}',
+                style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('© 2026 ${AppConstants.authorName}',
+                style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String icon;
+  final String title;
+  const _SectionTitle({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: 8),
+        Text(title, style: theme.textTheme.titleSmall),
+      ],
+    );
+  }
+}
+
+class _TextFieldTile extends StatelessWidget {
+  final String label;
+  final String hint;
+  final String value;
+  final ValueChanged<String> onChanged;
+  final bool obscure;
+  final Widget? suffix;
+
+  const _TextFieldTile({
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+    this.obscure = false,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        initialValue: value,
+        obscureText: obscure,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: const OutlineInputBorder(),
+          suffixIcon: suffix,
+        ),
+        onChanged: onChanged,
       ),
     );
   }
