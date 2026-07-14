@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String appName = 'Hermes Agent';
+  static const String appName = 'Hermes Android App';
   static const String version = '0.2.4';
   static const String packageName = 'com.nxg.hermesagentmobile';
 

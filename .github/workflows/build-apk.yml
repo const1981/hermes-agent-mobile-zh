@@ -5,9 +5,18 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+# 注意：本仓库的 GitHub Actions 实际跑在【本机 Windows 自托管 runner】上
+# （日志路径 C:\Users\Administrator\AppData\Local\Android\Sdk），不是 GitHub 云 ubuntu。
+# 该机器有 Android Studio（D:\ProgramData\apk），但全机缺命令行版 cmdline-tools/sdkmanager，
+# 且 SDK 的 platforms/android-36 是半残目录、ndk 未安装。
+# 因此本 workflow 在构建前自行修复 SDK：清 .temp → 下载 cmdline-tools → 重装 platform 36 → 装 NDK。
+
+env:
+  ANDROID_SDK_ROOT: "C:/Users/Administrator/AppData/Local/Android/Sdk"
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest   # 被本机 self-hosted Windows runner 拦截执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,16 +34,30 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Android SDK components (platform / build-tools / NDK)
+      - name: Repair Android SDK (clean .temp, install cmdline-tools + NDK + platform 36)
+        shell: powershell
         run: |
-          SDK="${ANDROID_SDK_ROOT}"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;27.2.12479018"
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          $SDK = $env:ANDROID_SDK_ROOT
+          Write-Host "SDK root = $SDK"
+          # 1) 删除陈旧 .temp，否则 sdkmanager 解压 android-36 会抛 FileAlreadyExistsException (ic_close.xml)
+          if (Test-Path "$SDK\.temp") { Remove-Item -Recurse -Force "$SDK\.temp" }
+          # 2) 确保有可用的 sdkmanager（本机 cmdline-tools/latest/bin 为空）
+          $sdkmanager = "$SDK\cmdline-tools\latest\bin\sdkmanager.bat"
+          if (-not (Test-Path $sdkmanager)) {
+            Write-Host "cmdline-tools 缺失 -> 从官网下载 commandlinetools ..."
+            $zip = "$env:RUNNER_TEMP\cmdline-tools.zip"
+            Invoke-WebRequest -Uri "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip" -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ct" -Force
+            if (Test-Path "$SDK\cmdline-tools\latest") { Remove-Item -Recurse -Force "$SDK\cmdline-tools\latest" }
+            Move-Item "$env:RUNNER_TEMP\ct\cmdline-tools" "$SDK\cmdline-tools\latest"
+            Remove-Item -Recurse -Force "$env:RUNNER_TEMP\ct"
+          }
+          # 3) 删掉半残的 platform 36，让 sdkmanager 重新装一份干净的
+          if (Test-Path "$SDK\platforms\android-36") { Remove-Item -Recurse -Force "$SDK\platforms\android-36" }
+          # 4) 接受协议并安装所需包（Gradle 不会自动装 NDK，必须显式装）
+          echo "y" | & "$sdkmanager" --sdk_root="$SDK" --licenses
+          & "$sdkmanager" --sdk_root="$SDK" "platforms;android-36" "ndk;27.2.12479018"
+          Write-Host "SDK 修复完成。"
 
       - name: Flutter pub get
         working-directory: flutter_app
@@ -49,5 +72,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hermes-agent-mobile-zh-apk
+          name: hermes-android-app-apk
           path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
