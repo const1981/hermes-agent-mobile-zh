@@ -172,10 +172,9 @@ cat > "$CONFIG_FILE" <<CONFIG_EOF
 # Hermes 配置（手机本地运行 · 云端推理）
 # 说明：Agent 调度层跑在你的手机本地（Termux），只有大模型推理请求发往云端。
 model:
-  default: ${MODEL}
   provider: ${PROVIDER}
+  model: ${MODEL}
   base_url: ${BASE_URL}
-  api_mode: chat_completions
   # 密钥从 ~/.hermes/.env 读取，下面用 ${变量名} 引用，运行时由 Hermes 解析
   api_key: ${API_KEY_REF}
 

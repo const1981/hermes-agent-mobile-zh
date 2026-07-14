@@ -3,46 +3,48 @@
 #  写入位置：~/.hermes/config.yaml
 #  注意：本文件只放"非敏感"配置；密钥放 ~/.hermes/.env，用 ${VAR} 引用。
 #  Hermes 支持在 config.yaml 里用 ${变量名} 引用环境变量（来自 .env 或 shell）。
+#  参考官方结构：https://hermes-agent.nousresearch.com/docs/user-guide/configuration
+# ============================================================
+
+# ============================================================
+#  主模型（Agent 推理走云端 API，手机只跑调度层）
+#  结构：model: 下用 provider / model / base_url / api_key
+#  自定义 OpenAI 兼容端点（智谱/DeepSeek/Kimi 等）设 provider: custom
 # ============================================================
 
 # ---------- 方案 A：OpenRouter（推荐，聚合多家，含免费小米 Mimo） ----------
 model:
-  default: xiaomi/mimo-v2.5
   provider: openrouter
+  model: xiaomi/mimo-v2.5
   base_url: https://openrouter.ai/api/v1
-  api_mode: chat_completions
   api_key: ${OPENROUTER_API_KEY}        # 密钥写在 .env 的 OPENROUTER_API_KEY
 
 # ---------- 方案 B：智谱 GLM（国内，bigmodel.cn） ----------
 # model:
-#   default: glm-4.5-air
-#   provider: custom                    # 自定义 OpenAI 兼容端点
+#   provider: custom                     # 自定义 OpenAI 兼容端点
+#   model: glm-4.5-air
 #   base_url: https://open.bigmodel.cn/api/paas/v1
-#   api_mode: chat_completions
 #   api_key: ${ZHIPU_API_KEY}            # 密钥写在 .env 的 ZHIPU_API_KEY
 
 # ---------- 方案 C：DeepSeek（国内） ----------
 # model:
-#   default: deepseek-chat
 #   provider: custom
+#   model: deepseek-chat
 #   base_url: https://api.deepseek.com/v1
-#   api_mode: chat_completions
 #   api_key: ${DEEPSEEK_API_KEY}         # 密钥写在 .env 的 DEEPSEEK_API_KEY
 
 # ---------- 方案 D：Kimi（月之暗面，国内） ----------
 # model:
-#   default: moonshot-v1-8k
 #   provider: custom
+#   model: moonshot-v1-8k
 #   base_url: https://api.moonshot.cn/v1
-#   api_mode: chat_completions
 #   api_key: ${KIMI_API_KEY}             # 密钥写在 .env 的 KIMI_API_KEY
 
 # ---------- 方案 E：自定义 OpenAI 兼容端点 ----------
 # model:
-#   default: your-model-id
 #   provider: custom
+#   model: your-model-id
 #   base_url: https://你的端点/v1
-#   api_mode: chat_completions
 #   api_key: ${OPENAI_API_KEY}           # 密钥写在 .env 的 OPENAI_API_KEY
 
 # ============================================================
@@ -54,8 +56,8 @@ agent:
 # 进阶（可选，默认可不动）：
 # auxiliary:                              # 辅助模型（视觉/压缩等）
 #   vision:
-#     base_url: "https://你的视觉端点/v1"
-#     api_key: ${VISION_API_KEY}
-#     model: "qwen2.5-vl"
+#     provider: openrouter
+#     model: openai/gpt-4o
+#     api_key: ${OPENROUTER_API_KEY}
 # cron: {}                               # 定时任务目录已建好 ~/.hermes/cron
 # skills: {}                             # 技能目录已建好 ~/.hermes/skills
