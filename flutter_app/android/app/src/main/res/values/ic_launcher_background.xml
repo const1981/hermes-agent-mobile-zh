@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background for the adaptive launcher icon. Chosen to match the
+         cyberpunk SutaAgent art so the rounded icon has no white border. -->
+    <color name="ic_launcher_background">#372E8F</color>
+</resources>

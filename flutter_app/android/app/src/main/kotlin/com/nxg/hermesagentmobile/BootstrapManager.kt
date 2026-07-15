@@ -54,8 +54,10 @@ class BootstrapManager(
         val binBash = File("$rootfsDir/bin/bash")
         val python3 = File("$rootfsDir/usr/bin/python3")
         val hermes = File("$rootfsDir/root/hermes-agent/gateway/run.py")
+        // venv/bin/hermes 是 pip 真正装好的证据；只看 run.py 会在依赖没装时误判完成
+        val hermesCli = File("$rootfsDir/root/hermes-agent/venv/bin/hermes")
         return rootfs.exists() && binBash.exists()
-            && python3.exists() && hermes.exists()
+            && python3.exists() && hermes.exists() && hermesCli.exists()
     }
 
     fun getBootstrapStatus(): Map<String, Any> {
@@ -63,15 +65,17 @@ class BootstrapManager(
         val binBashExists = File("$rootfsDir/bin/bash").exists()
         val python3Exists = File("$rootfsDir/usr/bin/python3").exists()
         val hermesExists = File("$rootfsDir/root/hermes-agent/gateway/run.py").exists()
+        val hermesCliExists = File("$rootfsDir/root/hermes-agent/venv/bin/hermes").exists()
 
         return mapOf(
             "rootfsExists" to rootfsExists,
             "binBashExists" to binBashExists,
             "python3Installed" to python3Exists,
             "hermesInstalled" to hermesExists,
+            "hermesCliInstalled" to hermesCliExists,
             "rootfsPath" to rootfsDir,
             "complete" to (rootfsExists && binBashExists
-                && python3Exists && hermesExists)
+                && python3Exists && hermesExists && hermesCliExists)
         )
     }
 

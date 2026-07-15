@@ -10,3 +10,6 @@ dl_tmp/
 build/
 .pub-cache/
 monitor_0312.sh
+
+# Gradle/Kotlin 编译缓存（含 .kotlin/errors 日志，不入库）
+flutter_app/android/.kotlin/

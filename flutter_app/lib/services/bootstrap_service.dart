@@ -43,6 +43,23 @@ class BootstrapService {
     }
   }
 
+  /// 在 proot 内验证 hermes CLI 是否真正可用（依赖是否真的装好）。
+  /// 不再只看 run.py / venv/bin/python 文件是否存在——那些在 pip 失败时也会存在。
+  Future<bool> _verifyHermesCli() async {
+    try {
+      final out = await NativeBridge.runInProot(
+        'cd /root/hermes-agent && (./venv/bin/hermes --version 2>&1 || '
+        './venv/bin/python -c "import hermes; print(hermes.__version__)" 2>&1) '
+        '|| echo __HERMES_BROKEN__',
+        timeout: 60,
+      );
+      final trimmed = out.trim();
+      return trimmed.isNotEmpty && !trimmed.contains('__HERMES_BROKEN__');
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<SetupState> checkStatus() async {
     try {
       final complete = await NativeBridge.isBootstrapComplete();
@@ -304,8 +321,11 @@ class BootstrapService {
       }
 
       // ===== 断点续传：venv 已建则跳过 venv + pip =====
+      // 只有 venv/bin/hermes（pip 真正装好的证据）存在才算就绪。
+      // 旧逻辑只看 venv/bin/python，导致「venv 建了但依赖没装」也被判为就绪，
+      // 重新初始化时被跳过，永远修不好。
       final venvReady =
-          await _prootPathExists('/root/hermes-agent/venv/bin/python');
+          await _prootPathExists('/root/hermes-agent/venv/bin/hermes');
       if (!venvReady) {
         _updateSetupNotification('正在安装 Python 依赖...', progress: 85);
         onProgress(const SetupState(
@@ -325,27 +345,40 @@ class BootstrapService {
             timeout: 300,
           );
         } catch (_) {}
-        // 3) install dependencies — repo uses pyproject.toml (no requirements.txt)
-        //    走国内清华源（首选）；清华失败时自动切华为云兜底
+        // 3) install dependencies.
+        //    仓库用 pyproject.toml（没有 requirements.txt），主装方式必须是
+        //    `pip install -e ".[all]"`。之前先把 requirements.txt 当首选会导致
+        //    反复 1800s 超时失败（文件根本不存在），只靠最后的 `.[all]` 兜底，
+        //    一旦 `.[all]` 也失败就被静默吞掉、照样报「完成」。
+        //    现在改为 `.[all]` 首选 + 双镜像，全部失败才抛错。
         const pipPrimary = AppConstants.pipIndexUrl;
         const pipFallback = AppConstants.pipFallbackUrl;
-        try {
-          await prootRun(
-            'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i $pipPrimary',
-            timeout: 1800,
-          );
-        } catch (_) {
+        var depsInstalled = false;
+        for (final mirror in [pipPrimary, pipFallback]) {
           try {
             await prootRun(
-              'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i $pipFallback',
+              'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]" -i $mirror',
               timeout: 1800,
             );
-          } catch (_) {
-            await prootRun(
-              'cd /root/hermes-agent && ./venv/bin/python -m pip install -e ".[all]" -i $pipPrimary',
-              timeout: 1800,
-            );
+            depsInstalled = true;
+            break;
+          } catch (e) {
+            log('⚠ pip 安装失败（镜像 $mirror），尝试下一个');
           }
+        }
+        if (!depsInstalled) {
+          // 兜底：个别分支可能带 requirements.txt
+          try {
+            await prootRun(
+              'cd /root/hermes-agent && ./venv/bin/python -m pip install -r requirements.txt -i $pipPrimary',
+              timeout: 1800,
+            );
+            depsInstalled = true;
+          } catch (_) {}
+        }
+        if (!depsInstalled) {
+          throw Exception(
+              'Hermes Python 依赖安装失败（所有 pip 镜像均失败）。请检查网络后重试，或在终端手动 pip 安装。');
         }
       } else {
         log('ℹ venv 已存在，跳过依赖安装');
@@ -363,9 +396,13 @@ class BootstrapService {
         progress: 0.9,
         message: '正在验证 Hermes Agent 安装...',
       ));
-      await prootRun(
-        'test -f /root/hermes-agent/gateway/run.py && echo hermes_ready',
-      );
+      // 真实验证：hermes CLI 必须能跑起来（不再只看 run.py 文件在不在）
+      final hermesOk = await _verifyHermesCli();
+      if (!hermesOk) {
+        throw Exception(
+            'Hermes 依赖安装后仍不可用（venv/bin/hermes 无法运行）。请检查 pip 镜像源后重试。');
+      }
+      log('✔ Hermes CLI 可用，依赖安装完成');
       onProgress(const SetupState(
         step: SetupStep.installingHermesAgent,
         progress: 1.0,
