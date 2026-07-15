@@ -4,7 +4,7 @@ import '../providers/config_provider.dart';
 import '../services/native_bridge.dart';
 import '../widgets/channel_editor.dart';
 
-/// 网关页：显示网关运行状态 + 飞书/企微/钉钉/微信 四渠道「已配/未配」与就地配 Key。
+/// 网关页：显示网关运行状态 + 飞书/企微/钉钉 三渠道「已配/未配」与就地配 Key。
 /// 对标 1Panel 的「聊天渠道」页：渠道配置与网关状态集中管理，保存即重启网关。
 class GatewayScreen extends StatefulWidget {
   const GatewayScreen({super.key});
@@ -124,13 +124,6 @@ class _GatewayScreenState extends State<GatewayScreen> {
             onToggle: (v) => cfg.setDingtalk(enabled: v),
             fields: dingtalkFields,
           ),
-          ChannelEditor(
-            title: '微信',
-            subtitle: cfg.weixinEnabled ? '已配置' : '未配置',
-            enabled: cfg.weixinEnabled,
-            onToggle: (v) => cfg.setWeixin(enabled: v),
-            fields: weixinFields,
-          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -142,7 +135,7 @@ class _GatewayScreenState extends State<GatewayScreen> {
           ),
           const SizedBox(height: 12),
           const Text(
-            '开启渠道并填好 Key → 保存并重启网关，即可在飞书/微信里直接和 Agent 对话。',
+            '开启渠道并填好 Key → 保存并重启网关，即可在飞书/企微/钉钉里直接和 Agent 对话。',
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],

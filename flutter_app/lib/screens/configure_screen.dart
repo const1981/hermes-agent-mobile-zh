@@ -64,7 +64,8 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
   }
 }
 
-/// 对接：飞书 / 企业微信 / 钉钉 / 微信（四渠道就地配 Key，保存即重启网关）
+/// 对接：飞书 / 企业微信 / 钉钉（就地配 Key，保存即重启网关）
+/// 注：个人微信需扫码登录（Hermes 后端交互式流程），本 App 暂不支持，已移除。
 class _ChannelPanel extends StatelessWidget {
   const _ChannelPanel();
 
@@ -76,7 +77,7 @@ class _ChannelPanel extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 4),
-          child: Text('配置沟通渠道（飞书/企微/钉钉/微信），开启后保存会自动重启网关生效。',
+          child: Text('配置沟通渠道（飞书/企微/钉钉），开启后保存会自动重启网关生效。',
               style: TextStyle(color: Colors.grey, fontSize: 12)),
         ),
         ChannelEditor(
@@ -99,13 +100,6 @@ class _ChannelPanel extends StatelessWidget {
           enabled: cfg.dingtalkEnabled,
           onToggle: (v) => cfg.setDingtalk(enabled: v),
           fields: dingtalkFields,
-        ),
-        ChannelEditor(
-          title: '微信',
-          subtitle: '微信对接（WEIXIN_ACCOUNT_ID）',
-          enabled: cfg.weixinEnabled,
-          onToggle: (v) => cfg.setWeixin(enabled: v),
-          fields: weixinFields,
         ),
         const SizedBox(height: 8),
         SizedBox(

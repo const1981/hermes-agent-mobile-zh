@@ -6,7 +6,7 @@ import '../services/native_bridge.dart';
 /// 飞书:    FEISHU_APP_ID / FEISHU_APP_SECRET
 /// 企微:    WECOM_BOT_ID / WECOM_SECRET
 /// 钉钉:    DINGTALK_CLIENT_ID / DINGTALK_CLIENT_SECRET
-/// 微信:    WEIXIN_ACCOUNT_ID / WEIXIN_TOKEN
+/// （微信个人号需扫码登录，无法表单配置，已移除）
 /// 模型密钥: HERMES_API_KEY
 class ConfigProvider extends ChangeNotifier {
   ConfigProvider() {
@@ -20,7 +20,7 @@ class ConfigProvider extends ChangeNotifier {
   String _model = kProviderTemplates.first.defaultModel;
   bool _useCustomProvider = false;
 
-  // ── 渠道配置（国内四件套：飞书/企微/钉钉/微信） ──
+  // ── 渠道配置（飞书/企微/钉钉；个人微信需扫码，已移除） ──
   bool _feishuEnabled = false;
   String _feishuAppId = '';
   String _feishuAppSecret = '';
@@ -33,9 +33,7 @@ class ConfigProvider extends ChangeNotifier {
   String _dingtalkClientId = '';
   String _dingtalkClientSecret = '';
 
-  bool _weixinEnabled = false;
-  String _weixinAccountId = '';
-  String _weixinToken = '';
+  // 注：个人微信需扫码登录（Hermes 后端交互式流程），本 App 无法表单配置，已移除微信渠道。
 
   // ── 技能开关 ──────────────────────────────
   bool _skillWebSearch = false;
@@ -56,8 +54,6 @@ class ConfigProvider extends ChangeNotifier {
     'WECOM_SECRET',
     'DINGTALK_CLIENT_ID',
     'DINGTALK_CLIENT_SECRET',
-    'WEIXIN_ACCOUNT_ID',
-    'WEIXIN_TOKEN',
   };
 
   // ── 持久化：从 ~/.hermes/.env 读取真实配置 ──
@@ -84,10 +80,6 @@ class ConfigProvider extends ChangeNotifier {
           (map['DINGTALK_CLIENT_ID']?.isNotEmpty ?? false);
       _dingtalkClientId = map['DINGTALK_CLIENT_ID'] ?? '';
       _dingtalkClientSecret = map['DINGTALK_CLIENT_SECRET'] ?? '';
-      _weixinEnabled = map.containsKey('WEIXIN_ACCOUNT_ID') &&
-          (map['WEIXIN_ACCOUNT_ID']?.isNotEmpty ?? false);
-      _weixinAccountId = map['WEIXIN_ACCOUNT_ID'] ?? '';
-      _weixinToken = map['WEIXIN_TOKEN'] ?? '';
       if (map.containsKey('HERMES_API_KEY')) _apiKey = map['HERMES_API_KEY'] ?? '';
       if (map.containsKey('XIAOMI_API_KEY')) {
         final v = map['XIAOMI_API_KEY'] ?? '';
@@ -129,9 +121,6 @@ class ConfigProvider extends ChangeNotifier {
   bool get dingtalkEnabled => _dingtalkEnabled;
   String get dingtalkClientId => _dingtalkClientId;
   String get dingtalkClientSecret => _dingtalkClientSecret;
-  bool get weixinEnabled => _weixinEnabled;
-  String get weixinAccountId => _weixinAccountId;
-  String get weixinToken => _weixinToken;
 
   bool get skillWebSearch => _skillWebSearch;
   bool get skillCodeRun => _skillCodeRun;
@@ -199,13 +188,6 @@ class ConfigProvider extends ChangeNotifier {
     if (enabled != null) _dingtalkEnabled = enabled;
     if (clientId != null) _dingtalkClientId = clientId;
     if (clientSecret != null) _dingtalkClientSecret = clientSecret;
-    notifyListeners();
-  }
-
-  void setWeixin({bool? enabled, String? accountId, String? token}) {
-    if (enabled != null) _weixinEnabled = enabled;
-    if (accountId != null) _weixinAccountId = accountId;
-    if (token != null) _weixinToken = token;
     notifyListeners();
   }
 
@@ -308,10 +290,6 @@ model:
     if (_dingtalkEnabled) {
       m['DINGTALK_CLIENT_ID'] = _dingtalkClientId;
       if (_dingtalkClientSecret.isNotEmpty) m['DINGTALK_CLIENT_SECRET'] = _dingtalkClientSecret;
-    }
-    if (_weixinEnabled) {
-      m['WEIXIN_ACCOUNT_ID'] = _weixinAccountId;
-      m['WEIXIN_TOKEN'] = _weixinToken;
     }
     return m;
   }

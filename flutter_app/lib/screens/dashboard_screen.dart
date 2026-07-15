@@ -128,7 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildActionCard(
               theme,
               '网关',
-              '渠道对接与网关状态（飞书/企微/钉钉/微信）',
+              '渠道对接与网关状态（飞书/企微/钉钉）',
               icon: Icons.cloud,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GatewayScreen()),
@@ -203,7 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Hermes 已装好。现在去设置大模型（GLM/DeepSeek 等）和通讯渠道（飞书/微信等），才能开始对话。',
+            'Hermes 已装好。现在去设置大模型（GLM/DeepSeek 等）和通讯渠道（飞书/企微/钉钉），才能开始对话。',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onPrimaryContainer,
             ),

@@ -157,22 +157,8 @@ final List<ChannelField> dingtalkFields = [
   ),
 ];
 
-/// 微信字段（WEIXIN_ACCOUNT_ID / WEIXIN_TOKEN）
-final List<ChannelField> weixinFields = [
-  ChannelField(
-    label: 'Account ID',
-    hint: '微信账号 ID',
-    get: (c) => c.weixinAccountId,
-    set: (c, v) => c.setWeixin(accountId: v),
-  ),
-  ChannelField(
-    label: 'Token',
-    hint: '微信 Token',
-    obscure: true,
-    get: (c) => c.weixinToken,
-    set: (c, v) => c.setWeixin(token: v),
-  ),
-];
+// 注：个人微信需扫码登录（Hermes 后端交互式 `hermes gateway setup` 流程），
+// 本 App 无法在表单里配置，已移除微信渠道。扫码对接归 sutaagent 新版实现。
 
 /// 「保存并重启网关」：写 config.yaml + 增量合并 .env，然后重启网关让 Hermes 重新加载。
 /// 对标 1Panel 的 Save and Restart Gateway。
