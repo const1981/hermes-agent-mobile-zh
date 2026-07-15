@@ -46,7 +46,7 @@ class ProviderTemplate {
   final String? docUrl;
 }
 
-/// 全部预设供应商（按国内常用度排序）
+/// 全部预设供应商（按国内常用度排序；下拉框可滚动，常用全保留）
 const List<ProviderTemplate> kProviderTemplates = [
   // ── DeepSeek ──────────────────────────────
   ProviderTemplate(
@@ -193,6 +193,24 @@ const List<ProviderTemplate> kProviderTemplates = [
         'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKeyManagement',
   ),
 
+  // ── 硅基流动 (SiliconFlow) ──────────────
+  ProviderTemplate(
+    id: 'siliconflow',
+    name: '硅基流动',
+    icon: '🌊',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'deepseek-ai/DeepSeek-V3',
+    models: [
+      'deepseek-ai/DeepSeek-V3',
+      'deepseek-ai/DeepSeek-R1',
+      'Qwen/Qwen2.5-72B-Instruct',
+      'meta-llama/Llama-3.3-70B-Instruct',
+      'Pro/deepseek-ai/DeepSeek-V3',
+    ],
+    description: '硅基流动，国内 GPU 推理平台（DeepSeek/千问等）',
+    docUrl: 'https://cloud.siliconflow.cn/account/ak',
+  ),
+
   // ── StepFun (阶跃星辰) ──────────────────
   ProviderTemplate(
     id: 'stepfun',
@@ -222,7 +240,8 @@ const List<ProviderTemplate> kProviderTemplates = [
       'abab6.5s-chat',
     ],
     description: 'MiniMax 对话模型',
-    docUrl: 'https://platform.minimaxi.com/user-center/basic-information/interface-key',
+    docUrl:
+        'https://platform.minimaxi.com/user-center/basic-information/interface-key',
   ),
 
   // ── 火山方舟 / ModelScope ───────────────

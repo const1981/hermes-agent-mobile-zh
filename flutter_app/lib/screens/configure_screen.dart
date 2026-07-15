@@ -2,15 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
-import '../l10n/app_strings.dart';
 import '../models/provider_template.dart';
 import '../providers/config_provider.dart';
+import '../widgets/channel_editor.dart';
 import '../services/native_bridge.dart';
 
-/// 配置页（对标 1Panel）：顶部 TabBar [频道 | 模型 | 技能 | 设置]，下方原生表单。
+/// 自定义供应商在 Dropdown 里的占位 value（与模板 id 不冲突）。
+const String _kCustomId = '__custom__';
+
+/// 配置页（对标 1Panel）：顶部 TabBar [对接 | 模型 | 技能 | 设置]，下方原生表单。
 /// 不再使用 NavigationRail（桌面组件，手机窄屏会水平溢出把内容挤出视口→白屏）。
-class ConfigureScreen extends StatelessWidget {
+class ConfigureScreen extends StatefulWidget {
   const ConfigureScreen({super.key});
+
+  @override
+  State<ConfigureScreen> createState() => _ConfigureScreenState();
+}
+
+class _ConfigureScreenState extends State<ConfigureScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 进入配置页即从 .env 拉取真实已配状态，避免显示空白
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ConfigProvider>().loadEnv();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +44,7 @@ class ConfigureScreen extends StatelessWidget {
           bottom: const TabBar(
             isScrollable: false,
             tabs: [
-              Tab(icon: Icon(Icons.forum_outlined), text: '频道'),
+              Tab(icon: Icon(Icons.forum_outlined), text: '对接'),
               Tab(icon: Icon(Icons.hub_outlined), text: '模型'),
               Tab(icon: Icon(Icons.extension_outlined), text: '技能'),
               Tab(icon: Icon(Icons.settings_outlined), text: '设置'),
@@ -47,107 +64,67 @@ class ConfigureScreen extends StatelessWidget {
   }
 }
 
-/// 频道：微信 / 飞书 / Telegram 等
+/// 对接：飞书 / 企业微信 / 钉钉 / 微信（四渠道就地配 Key，保存即重启网关）
 class _ChannelPanel extends StatelessWidget {
   const _ChannelPanel();
 
   @override
   Widget build(BuildContext context) {
     final cfg = context.watch<ConfigProvider>();
-    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _SectionTitle(icon: '💬', title: '微信'),
-        SwitchListTile(
-          title: const Text('启用微信对接'),
-          subtitle: const Text('扫码后自动重启容器'),
-          value: cfg.wechatEnabled,
-          onChanged: (v) => cfg.setWechat(enabled: v),
-        ),
-        if (cfg.wechatEnabled) ...[
-          _TextFieldTile(
-            label: 'Token',
-            hint: '微信公众平台 Token',
-            value: cfg.wechatToken,
-            onChanged: (v) => cfg.setWechat(token: v),
-            obscure: true,
-          ),
-          _TextFieldTile(
-            label: 'EncodingAESKey',
-            hint: '消息加密密钥',
-            value: cfg.wechatEncodingAesKey,
-            onChanged: (v) => cfg.setWechat(aesKey: v),
-            obscure: true,
-          ),
-        ],
-        const Divider(height: 24),
-        _SectionTitle(icon: '📋', title: '飞书'),
-        SwitchListTile(
-          title: const Text('启用飞书对接'),
-          subtitle: const Text('企业自建应用 Webhook'),
-          value: cfg.feishuEnabled,
-          onChanged: (v) => cfg.setFeishu(enabled: v),
-        ),
-        if (cfg.feishuEnabled) ...[
-          _TextFieldTile(
-            label: 'App ID',
-            hint: 'cli_xxx',
-            value: cfg.feishuAppId,
-            onChanged: (v) => cfg.setFeishu(appId: v),
-          ),
-          _TextFieldTile(
-            label: 'App Secret',
-            hint: '应用密钥',
-            value: cfg.feishuAppSecret,
-            onChanged: (v) => cfg.setFeishu(appSecret: v),
-            obscure: true,
-          ),
-        ],
-        const Divider(height: 24),
-        _SectionTitle(icon: '✈️', title: 'Telegram'),
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Text('在 .env 中配置 TELEGRAM_BOT_TOKEN 后重启网关即可。',
-              style: TextStyle(color: Colors.grey)),
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: Text('配置沟通渠道（飞书/企微/钉钉/微信），开启后保存会自动重启网关生效。',
+              style: TextStyle(color: Colors.grey, fontSize: 12)),
         ),
-        const SizedBox(height: 16),
+        ChannelEditor(
+          title: '飞书',
+          subtitle: '企业自建应用（FEISHU_APP_ID）',
+          enabled: cfg.feishuEnabled,
+          onToggle: (v) => cfg.setFeishu(enabled: v),
+          fields: feishuFields,
+        ),
+        ChannelEditor(
+          title: '企业微信',
+          subtitle: '企业微信机器人（WECOM_BOT_ID）',
+          enabled: cfg.wecomEnabled,
+          onToggle: (v) => cfg.setWecom(enabled: v),
+          fields: wecomFields,
+        ),
+        ChannelEditor(
+          title: '钉钉',
+          subtitle: '钉钉客户端（DINGTALK_CLIENT_ID）',
+          enabled: cfg.dingtalkEnabled,
+          onToggle: (v) => cfg.setDingtalk(enabled: v),
+          fields: dingtalkFields,
+        ),
+        ChannelEditor(
+          title: '微信',
+          subtitle: '微信对接（WEIXIN_ACCOUNT_ID）',
+          enabled: cfg.weixinEnabled,
+          onToggle: (v) => cfg.setWeixin(enabled: v),
+          fields: weixinFields,
+        ),
+        const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: () async {
-              final cfg = context.read<ConfigProvider>();
-              try {
-                await NativeBridge.writeRootfsFile(
-                    'root/.hermes/config.yaml', cfg.toConfigYaml());
-                await NativeBridge.writeRootfsFile(
-                    'root/.hermes/.env', cfg.toEnv());
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('频道配置已保存，重启网关生效')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('保存失败：$e')),
-                  );
-                }
-              }
-            },
+            onPressed: () => saveAndRestartGateway(context),
             icon: const Icon(Icons.save),
-            label: const Text('保存配置'),
+            label: const Text('保存并重启网关'),
           ),
         ),
         const SizedBox(height: 12),
-        const Text('配置保存后需重启网关生效（设置页 → 重启网关）。',
+        const Text('保存后会写入 ~/.hermes/.env 并自动重启网关，飞书等渠道即可在聊天里使用。',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
   }
 }
 
-/// 模型：供应商卡片 + 只填 Key
+/// 模型：下拉选框选供应商 + 只填 Key
 class _ModelPanel extends StatefulWidget {
   const _ModelPanel();
 
@@ -160,43 +137,43 @@ class _ModelPanelState extends State<_ModelPanel> {
   Widget build(BuildContext context) {
     final cfg = context.watch<ConfigProvider>();
     final theme = Theme.of(context);
+    // 取一次 selectedTemplate，避免多处 ! 强解包在 null 上崩溃
+    final tmpl = cfg.selectedTemplate;
+    final currentValue = cfg.useCustomProvider ? _kCustomId : cfg.providerId;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _SectionTitle(icon: '🤖', title: '选择供应商'),
+        _SectionTitle(icon: '🤖', title: '模型供应商'),
         const SizedBox(height: 8),
-        // 供应商网格（卡片）
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          childAspectRatio: 2.6,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          children: [
+        // 下拉选框：常用厂商全收纳（可滚动），不再铺成卡片网格
+        DropdownButtonFormField<String>(
+          value: currentValue,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: '选择供应商',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          items: [
             for (final t in kProviderTemplates)
-              _ProviderCard(
-                template: t,
-                selected: !cfg.useCustomProvider && cfg.providerId == t.id,
-                onTap: () => cfg.selectProvider(t.id),
+              DropdownMenuItem(
+                value: t.id,
+                child: Text('${t.icon} ${t.name}'),
               ),
-            // 自定义
-            _ProviderCard(
-              template: const ProviderTemplate(
-                id: 'custom',
-                name: '自定义',
-                icon: '➕',
-                baseUrl: '',
-                defaultModel: '',
-                models: const [],
-                description: '手动填写全部',
-              ),
-              selected: cfg.useCustomProvider,
-              onTap: () => cfg.setCustomProvider(),
+            const DropdownMenuItem(
+              value: _kCustomId,
+              child: Text('➕ 自定义'),
             ),
           ],
+          onChanged: (v) {
+            if (v == _kCustomId) {
+              cfg.setCustomProvider();
+            } else if (v != null) {
+              cfg.selectProvider(v);
+            }
+          },
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         // 表单
         if (cfg.useCustomProvider) ...[
           _TextFieldTile(
@@ -232,10 +209,12 @@ class _ModelPanelState extends State<_ModelPanel> {
                 DropdownButtonFormField<String>(
                   value: cfg.model,
                   isExpanded: true,
-                  items: (cfg.selectedTemplate?.models ?? [cfg.model])
+                  items: (tmpl?.models ?? [cfg.model])
                       .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                       .toList(),
-                  onChanged: (v) => cfg.setModel(v!),
+                  onChanged: (v) {
+                    if (v != null) cfg.setModel(v);
+                  },
                   decoration: const InputDecoration(
                     isDense: true,
                     border: OutlineInputBorder(),
@@ -248,48 +227,21 @@ class _ModelPanelState extends State<_ModelPanel> {
         const SizedBox(height: 16),
         // API Key（唯一需手填）
         _TextFieldTile(
-          label: cfg.selectedTemplate?.keyLabel ?? 'API Key',
-          hint: cfg.selectedTemplate?.keyHint ?? 'sk-...',
+          label: tmpl?.keyLabel ?? 'API Key',
+          hint: tmpl?.keyHint ?? 'sk-...',
           value: cfg.apiKey,
           onChanged: cfg.setApiKey,
           obscure: true,
-          suffix: cfg.selectedTemplate?.docUrl != null
-              ? IconButton(
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  tooltip: '获取 Key',
-                  onPressed: () => launchUrl(
-                    Uri.parse(cfg.selectedTemplate!.docUrl!),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                )
-              : null,
+          suffix: _docButton(tmpl),
         ),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: () async {
-                  final cfg = context.read<ConfigProvider>();
-                  try {
-                    await NativeBridge.writeRootfsFile(
-                        'root/.hermes/config.yaml', cfg.toConfigYaml());
-                    await NativeBridge.writeRootfsFile(
-                        'root/.hermes/.env', cfg.toEnv());
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('配置已写入 ~/.hermes/config.yaml，重启网关生效')),
-                    );
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('保存失败：$e')),
-                    );
-                  }
-                },
+                onPressed: () => saveAndRestartGateway(context),
                 icon: const Icon(Icons.save),
-                label: const Text('保存配置'),
+                label: const Text('保存并重启网关'),
               ),
             ),
             const SizedBox(width: 12),
@@ -332,54 +284,22 @@ class _ModelPanelState extends State<_ModelPanel> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text('选好供应商、填 Key → 保存，无需进命令行。',
+        const Text('选好供应商、填 Key → 保存并重启网关，无需进命令行。',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
   }
-}
 
-class _ProviderCard extends StatelessWidget {
-  final ProviderTemplate template;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ProviderCard({
-    required this.template,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: selected
-          ? theme.colorScheme.primaryContainer
-          : theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              Text(template.icon, style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  template.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (selected) Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
-            ],
-          ),
-        ),
+  /// 「获取 Key」图标按钮：docUrl 为空串或非空才显示，避免 Uri.parse('') 崩溃
+  Widget? _docButton(ProviderTemplate? tmpl) {
+    final doc = tmpl?.docUrl;
+    if (doc == null || doc.isEmpty) return null;
+    return IconButton(
+      icon: const Icon(Icons.open_in_new, size: 18),
+      tooltip: '获取 Key',
+      onPressed: () => launchUrl(
+        Uri.parse(doc),
+        mode: LaunchMode.externalApplication,
       ),
     );
   }
@@ -472,6 +392,9 @@ class _AboutCard extends StatelessWidget {
                 style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text('© 2026 ${AppConstants.authorName}',
+                style: theme.textTheme.bodySmall),
+            const SizedBox(height: 4),
+            Text('联系： ${AppConstants.authorEmail}',
                 style: theme.textTheme.bodySmall),
           ],
         ),

@@ -50,6 +50,12 @@ class NativeBridge {
     return await _channel.invokeMethod('isGatewayRunning');
   }
 
+  /// 保存配置后自动重启网关（对标 1Panel「保存并重启网关」）。
+  /// 只停 Service 再起，不会杀掉整个 App。
+  static Future<bool> restartGateway() async {
+    return await _channel.invokeMethod('restartGateway');
+  }
+
   static Future<bool> setupDirs() async {
     return await _channel.invokeMethod('setupDirs');
   }
@@ -79,6 +85,13 @@ class NativeBridge {
 
   static Future<bool> restoreDataDir(String path) async {
     return await _channel.invokeMethod('restoreDataDir', {'path': path});
+  }
+
+  /// 把整套已装环境(rootfs/ubuntu) 打成 zip 到固定路径 filesDir/hermes_env.zip，返回绝对路径。
+  /// 供系统镜像页「打包」+ 局域网下载导出（不依赖外部存储权限）。
+  static Future<String> packEnvZip() async {
+    final r = await _channel.invokeMethod<String>('packEnvZip');
+    return r ?? '';
   }
 
   static Future<bool> hasStoragePermission() async {

@@ -437,6 +437,25 @@ class MainActivity : FlutterActivity() {
                         }
                     }.start()
                 }
+                "packEnvZip" -> {
+                    // 把整套已装环境(rootfs/ubuntu) 打成固定路径 zip，供 App 内局域网下载服务导出
+                    Thread {
+                        try {
+                            val envDir = File(filesDir, "rootfs/ubuntu")
+                            if (!envDir.exists() || !envDir.isDirectory) {
+                                runOnUiThread {
+                                    result.error("NO_ENV", "未找到已安装环境(rootfs/ubuntu)，请先完成初始化", null)
+                                }
+                                return@Thread
+                            }
+                            val zipFile = File(filesDir, "hermes_env.zip")
+                            zipDirectory(envDir, zipFile)
+                            runOnUiThread { result.success(zipFile.absolutePath) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("PACK_ERROR", e.message, null) }
+                        }
+                    }.start()
+                }
                 "listBackups" -> {
                     Thread {
                         try {
@@ -565,6 +584,27 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.error("SENSOR_ERROR", e.message, null) }
                         }
                     }.start()
+                }
+                "restartGateway" -> {
+                    // 保存配置后自动重启网关（对标 1Panel 的「保存并重启网关」）。
+                    // 注意：不能走 stopGateway 通道——那会 killProcess 杀掉整个 App。
+                    // 这里只停掉 Service（杀死内部 python 网关进程，不杀 App），
+                    // 等端口释放后再启动新 Service，让 Hermes 重新加载 .env 配置。
+                    try {
+                        GatewayService.stop(applicationContext)
+                        Thread {
+                            try { Thread.sleep(2000) } catch (_: Exception) {}
+                            try {
+                                GatewayService.start(applicationContext)
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("RESTART_ERROR", e.message, null) }
+                                return@Thread
+                            }
+                            runOnUiThread { result.success(true) }
+                        }.start()
+                    } catch (e: Exception) {
+                        runOnUiThread { result.error("RESTART_ERROR", e.message, null) }
+                    }
                 }
                 else -> {
                     result.notImplemented()
