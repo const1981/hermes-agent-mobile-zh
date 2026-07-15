@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/setup_provider.dart';
@@ -61,7 +62,11 @@ class HermesAgentApp extends StatelessWidget {
               Locale('en'),
               Locale('en', 'US'),
             ],
-            localizationsDelegates: const [],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             home: const SplashScreen(),
           );
         },
