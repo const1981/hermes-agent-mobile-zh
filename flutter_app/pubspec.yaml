@@ -1,5 +1,5 @@
 name: hermes_agent_mobile
-description: Hermes Agent AI Gateway for Android - standalone, no Termux required.
+description: Hermes Agent - Flutter-based AI agent manager for Android with a built-in proot runtime.
 publish_to: 'none'
 version: 0.3.19+51
 
