@@ -1,4 +1,4 @@
-# Hermes 手机端（安卓 Termux · 中文版）
+# Hermes 手机端（安卓 hermes · 中文版）
 
 > 手机本地运行 Hermes Agent 的调度层，**只有大模型推理走云端 API**。不是云端服务器、不在手机上跑模型。
 
@@ -11,7 +11,7 @@
 
 | 部分 | 跑在哪 | 说明 |
 |------|--------|------|
-| **Hermes 调度层** | 手机本地（Termux） | 思考链、工具调用决策、记忆库、上下文管理、任务队列、多轮对话闭环 |
+| **Hermes 调度层** | 手机本地 | 思考链、工具调用决策、记忆库、上下文管理、任务队列、多轮对话闭环 |
 | **本地工具** | 手机本地 | 文件读写、本地搜索、命令执行、定时任务（cron）、Web 搜索 |
 | **大模型推理** | 云端 API | 仅把 prompt 发往 OpenRouter / 智谱 / DeepSeek / Kimi 等，收到回答后本地继续调度 |
 | **配置 / 密钥 / 记忆** | 手机本地 | 全部存在 `~/.hermes/`，不经过任何第三方服务器 |
@@ -47,7 +47,7 @@
 | 网络 | 能访问 GitHub / PyPI / Ubuntu 镜像 / 你选的模型 API |
 | 密钥 | 任一云端 LLM 的 API Key（见下方"获取 Key"） |
 
-> 想走「纯 Termux 脚本」极简路线（不装 App）才需要先装 Termux，见 [安装指南.md](安装指南.md) 附录。
+>  见 [安装指南.md](安装指南.md) 附录。
 
 ---
 
@@ -63,7 +63,7 @@
 
 > App 的「一键安装」是**自带的**：它在 App 私有目录里用内置 proot 解包 Ubuntu、克隆并安装 Hermes，**不调用 `scripts/install-termux.sh`、也不需要 Termux**。全程界面点按，无需命令行。
 
-**可选 · 纯 Termux 路线（不用 App，需先装 Termux）**：
+**可选 ·   路线（ **：
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/const1981/hermes-agent-mobile-zh/main/scripts/install-termux.sh)
