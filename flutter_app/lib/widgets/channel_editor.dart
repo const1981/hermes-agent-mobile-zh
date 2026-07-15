@@ -90,7 +90,7 @@ class _FieldTile extends StatelessWidget {
           hintText: field.hint,
           border: const OutlineInputBorder(),
           isDense: true,
-          suffixIcon: field.docUrl != null && field.docUrl!.isNotEmpty
+          suffixIcon: (field.docUrl?.isNotEmpty ?? false)
               ? IconButton(
                   icon: const Icon(Icons.open_in_new, size: 18),
                   tooltip: '查看文档',

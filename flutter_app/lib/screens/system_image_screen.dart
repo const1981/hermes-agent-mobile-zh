@@ -109,6 +109,15 @@ class _SystemImageScreenState extends State<SystemImageScreen> {
     if (_packing) return;
     setState(() => _packing = true);
     try {
+      // 先显示提示：大目录可能需要几分钟
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('开始打包整个环境，目录较大可能需要 3~10 分钟，请耐心等待…'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
       final p = await NativeBridge.packEnvZip();
       final f = File(p);
       final size = await f.exists() ? await f.length() : 0;
@@ -118,7 +127,7 @@ class _SystemImageScreenState extends State<SystemImageScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已打包：${_fmtSize(size)}')),
+          SnackBar(content: Text('✅ 打包完成：${_fmtSize(size)}')),
         );
       }
     } catch (e) {
@@ -267,7 +276,7 @@ class _SystemImageScreenState extends State<SystemImageScreen> {
                     icon: _packing
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.archive),
-                    label: Text(_packing ? '打包中…' : '① 打包当前环境'),
+                    label: Text(_packing ? '打包中（大目录需几分钟）…' : '① 打包当前环境 (${_sizeLoading ? "…" : _fmtSize(_totalSize)})'),
                   ),
                   if (_zipPath.isNotEmpty) ...[
                     const SizedBox(height: 8),
