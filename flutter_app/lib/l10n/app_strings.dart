@@ -48,7 +48,7 @@ class AppStrings {
   String get onboardingDesc         => isZh ? '配置 API 密钥和绑定'     : 'Configure API keys and binding';
   String get configureTitle         => isZh ? '配置'                  : 'Configure';
   String get configureDesc          => isZh ? '编辑网关设置'           : 'Edit gateway settings';
-  String get terminalTitle          => isZh ? '终端'                  : 'Terminal';
+  String get terminalTitle          => isZh ? '对话终端'              : 'Chat Terminal';
   String get terminalDesc           => isZh ? '打开 Proot Shell'      : 'Open a proot shell';
   String get logsTitle              => isZh ? '日志'                  : 'Logs';
   String get logsDesc               => isZh ? '查看网关日志'           : 'View gateway logs';
@@ -202,7 +202,7 @@ class AppStrings {
   String get copyTooltip            => isZh ? '复制'                 : 'Copy';
   String get openUrlTooltip         => isZh ? '打开链接'             : 'Open URL';
   String get pasteTooltip           => isZh ? '粘贴'                 : 'Paste';
-  String get terminalAppBar         => isZh ? '终端'                 : 'Terminal';
+  String get terminalAppBar         => isZh ? '对话终端'             : 'Chat Terminal';
   String get startingTerminal       => isZh ? '正在启动终端...'      : 'Starting terminal...';
 
   // ── Logs Screen ──────────────────────────────

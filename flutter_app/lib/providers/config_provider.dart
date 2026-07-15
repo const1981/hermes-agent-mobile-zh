@@ -222,16 +222,76 @@ class ConfigProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  static String _yamlQuote(String value) {
+    // YAML 双引号字符串内需要转义反斜杠和双引号
+    return '"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"';
+  }
+
   /// 生成 Hermes config.yaml 的 model 段（只这一段；写盘时增量合并，绝不整体覆盖，
   /// 否则会丢掉 BootstrapManager 初始化写入的 `gateway: mode: local` 段导致网关失效）
-  String toConfigYaml() => '''
+  String toConfigYaml() {
+    final envKey = _useCustomProvider
+        ? 'HERMES_API_KEY'
+        : (selectedTemplate?.envKey ?? 'HERMES_API_KEY');
+    final provider = _useCustomProvider
+        ? 'custom'
+        : (selectedTemplate?.hermesProvider ?? _providerId);
+    return '''
 model:
-  provider: ${_useCustomProvider ? 'custom' : (selectedTemplate?.hermesProvider ?? _providerId)}
-  default: $_model
-  base_url: $_baseUrl
-  api_key: \${(_useCustomProvider ? 'HERMES_API_KEY' : (selectedTemplate?.envKey ?? 'HERMES_API_KEY'))}
+  provider: ${_yamlQuote(provider)}
+  default: ${_yamlQuote(_model)}
+  base_url: ${_yamlQuote(_baseUrl)}
+  api_key: ${_yamlQuote('\${$envKey}')}
 ''';
+  }
 
+  /// 把当前 model 段替换到已有 config.yaml 中，保留 gateway 等其他段。
+  /// 旧版用正则 `^model:\n(?:[ \t].*\n?)*` 匹配，遇到空行会截断，导致替换后
+  /// 残留旧 model 字段或格式错误，是 config.yaml 解析失败的元凶之一。
+  /// 这里改成按行解析：找到 model 块起止，整块替换。
+  static String _replaceModelBlock(String oldYaml, String newModelBlock) {
+    final lines = oldYaml.split('\n');
+    final result = <String>[];
+    int? modelStart;
+    int modelEnd = lines.length; // 默认到末尾
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trim();
+      if (trimmed == 'model:') {
+        modelStart = i;
+        continue;
+      }
+      if (modelStart != null && trimmed.isNotEmpty) {
+        // model 块的子行必须比 model: 行缩进更多（至少一个空格）
+        // 一旦遇到不缩进或同级/更高级别的键，说明 model 块结束
+        if (!line.startsWith(' ') && !line.startsWith('\t')) {
+          modelEnd = i;
+          break;
+        }
+      }
+    }
+
+    if (modelStart != null) {
+      // 保留 model 块之前的内容
+      result.addAll(lines.sublist(0, modelStart));
+      // 追加新 model 块
+      result.add(newModelBlock.trimRight());
+      // 保留 model 块之后的内容
+      if (modelEnd < lines.length) {
+        result.addAll(lines.sublist(modelEnd));
+      }
+    } else {
+      // 原配置没有 model 段，追加到末尾
+      result.addAll(lines);
+      if (result.isNotEmpty && result.last.trim().isNotEmpty) {
+        result.add('');
+      }
+      result.add(newModelBlock.trimRight());
+    }
+
+    return result.join('\n');
+  }
   /// 收集当前受管键的键值（仅启用渠道写入；禁用/空值不在此列表中→保存时被移除）
   Map<String, String> managedEnvEntries() {
     final m = <String, String>{};
@@ -322,13 +382,7 @@ model:
       newCfg = 'gateway:\n  mode: local\n$modelBlock';
     } else {
       // 已有配置：只替换 model 段，保留 gateway 等其他段
-      final modelPattern = RegExp(r'^model:\n(?:[ \t].*\n?)*', multiLine: true);
-      if (old.contains(modelPattern)) {
-        newCfg = old.replaceFirst(modelPattern, modelBlock);
-      } else {
-        // 原配置没有 model 段，追加到末尾
-        newCfg = old.endsWith('\n') ? '$old$modelBlock' : '$old\n$modelBlock';
-      }
+      newCfg = _replaceModelBlock(old, modelBlock);
     }
     await NativeBridge.writeRootfsFile(path, newCfg);
     await saveEnv();
