@@ -176,6 +176,8 @@ final List<ChannelField> weixinFields = [
 
 /// 「保存并重启网关」：写 config.yaml + 增量合并 .env，然后重启网关让 Hermes 重新加载。
 /// 对标 1Panel 的 Save and Restart Gateway。
+/// 重启后轮询网关真实状态，给出准确反馈（而非一律乐观），让「保存→重启→渠道真能用」
+/// 这一步对用户可见、可排查。
 Future<void> saveAndRestartGateway(BuildContext context) async {
   final cfg = context.read<ConfigProvider>();
   unawaited(showDialog<void>(
@@ -194,15 +196,27 @@ Future<void> saveAndRestartGateway(BuildContext context) async {
   try {
     await cfg.writeConfigFiles();
     final ok = await NativeBridge.restartGateway();
+    if (!context.mounted) return;
+    // 重启后轮询网关真实存活状态，最多等 ~8s，给准确反馈。
+    var alive = false;
+    for (var i = 0; i < 8; i++) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!context.mounted) return;
+      alive = await NativeBridge.isGatewayRunning();
+      if (alive) break;
+    }
     if (context.mounted) Navigator.of(context).pop();
     if (context.mounted) {
+      final msg = switch ((ok, alive)) {
+        (true, true) =>
+          '配置已写入，网关已重启并运行，飞书等渠道现在即可在聊天里使用',
+        (true, false) =>
+          '配置已写入、网关重启中，稍候在聊天里试试渠道；若 30 秒后仍不可用，请到「网关」页手动重启',
+        (false, _) =>
+          '配置已保存，但网关重启失败，请到「网关」页手动重启',
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok
-              ? '配置已写入，网关重启中（飞书等渠道稍候在聊天里生效）'
-              : '配置已保存，但网关重启失败，请到网关页手动重启'),
-          duration: const Duration(seconds: 4),
-        ),
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
       );
     }
   } catch (e) {

@@ -43,6 +43,34 @@ class _TerminalScreenState extends State<TerminalScreen> {
     'sans-serif',
   ];
 
+  // 现代深色终端主题：柔和深蓝灰底 + 舒适浅色前景，比默认纯黑更顺眼。
+  // 仅改观感，不碰 proot/hermes 逻辑。
+  static const _hermesTerminalTheme = TerminalTheme(
+    cursor: Color(0xFFAEAFAD),
+    selection: Color(0x40AEAFAD),
+    foreground: Color(0xFFD7DEE6),
+    background: Color(0xFF0E1116),
+    black: Color(0xFF000000),
+    red: Color(0xFFCD3131),
+    green: Color(0xFF0DBC79),
+    yellow: Color(0xFFE5E510),
+    blue: Color(0xFF2472C8),
+    magenta: Color(0xFFBC3FBC),
+    cyan: Color(0xFF11A8CD),
+    white: Color(0xFFE5E5E5),
+    brightBlack: Color(0xFF666666),
+    brightRed: Color(0xFFF14C4C),
+    brightGreen: Color(0xFF23D18B),
+    brightYellow: Color(0xFFF5F543),
+    brightBlue: Color(0xFF3B8EEA),
+    brightMagenta: Color(0xFFD670D6),
+    brightCyan: Color(0xFF29B8DB),
+    brightWhite: Color(0xFFFFFFFF),
+    searchHitBackground: Color(0xFFFFFF2B),
+    searchHitBackgroundCurrent: Color(0xFF31FF26),
+    searchHitForeground: Color(0xFF000000),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -244,7 +272,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Terminal'),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hermes 对话'),
+            Text(
+              '与 Agent 直接对话（终端）',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -324,9 +361,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
               child: TerminalView(
                 _terminal,
                 controller: _controller,
+                theme: _hermesTerminalTheme,
                 textStyle: const TerminalStyle(
-                  fontSize: 11,
-                  height: 1.0,
+                  fontSize: 13,
+                  height: 1.35,
                   fontFamily: 'DejaVuSansMono',
                   fontFamilyFallback: _fontFallback,
                 ),

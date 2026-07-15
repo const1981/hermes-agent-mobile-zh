@@ -404,39 +404,6 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "path and content required", null)
                     }
                 }
-                "backupDataDir" -> {
-                    Thread {
-                        try {
-                            // 备份整套已安装环境（Ubuntu + Python + Hermes + 全部依赖）= 系统镜像，用于一键还原(Ghost 式)
-                            val envDir = File(filesDir, "rootfs/ubuntu")
-                            if (!envDir.exists() || !envDir.isDirectory) {
-                                runOnUiThread {
-                                    result.error("NO_ENV", "未找到已安装环境(rootfs/ubuntu)，请先完成初始化", null)
-                                }
-                                return@Thread
-                            }
-                            val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                Environment.isExternalStorageManager()
-                            } else {
-                                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                            }
-                            val outDir: File
-                            if (hasPermission) {
-                                val d = File(Environment.getExternalStorageDirectory(), "Download")
-                                if (!d.exists()) d.mkdirs()
-                                outDir = d
-                            } else {
-                                outDir = File(filesDir)
-                            }
-                            val timeFmt = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
-                            val zipFile = File(outDir, "hermes-backup-${timeFmt.format(Date())}.zip")
-                            zipDirectory(envDir, zipFile)
-                            runOnUiThread { result.success(zipFile.absolutePath) }
-                        } catch (e: Exception) {
-                            runOnUiThread { result.error("BACKUP_ERROR", e.message, null) }
-                        }
-                    }.start()
-                }
                 "packEnvZip" -> {
                     // 把整套已装环境(rootfs/ubuntu) 打成固定路径 zip，供 App 内局域网下载服务导出
                     Thread {
@@ -453,64 +420,6 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(zipFile.absolutePath) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("PACK_ERROR", e.message, null) }
-                        }
-                    }.start()
-                }
-                "listBackups" -> {
-                    Thread {
-                        try {
-                            val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                Environment.isExternalStorageManager()
-                            } else {
-                                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                            }
-                            val dirs = mutableListOf<File>()
-                            if (hasPermission) {
-                                val d = File(Environment.getExternalStorageDirectory(), "Download")
-                                if (d.exists()) dirs.add(d)
-                            }
-                            val priv = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                            if (priv != null && priv.exists()) dirs.add(priv)
-                            val list = mutableListOf<Map<String, Any>>()
-                            for (d in dirs) {
-                                d.listFiles { f -> f.name.startsWith("hermes-backup-") && f.name.endsWith(".zip") }
-                                    ?.forEach { f ->
-                                        list.add(
-                                            mapOf(
-                                                "name" to f.name,
-                                                "path" to f.absolutePath,
-                                                "size" to f.length(),
-                                                "modified" to f.lastModified(),
-                                            ),
-                                        )
-                                    }
-                            }
-                            list.sortByDescending { it["modified"] as Long }
-                            runOnUiThread { result.success(list) }
-                        } catch (e: Exception) {
-                            runOnUiThread { result.error("LIST_ERROR", e.message, null) }
-                        }
-                    }.start()
-                }
-                "restoreDataDir" -> {
-                    val path = call.argument<String>("path")
-                    if (path.isNullOrEmpty()) {
-                        result.error("INVALID_ARGS", "path required", null)
-                        return@setMethodCallHandler
-                    }
-                    Thread {
-                        try {
-                            val zipFile = File(path)
-                            if (!zipFile.exists()) {
-                                runOnUiThread { result.error("NO_BACKUP", "备份文件不存在", null) }
-                                return@Thread
-                            }
-                            val envDir = File(filesDir, "rootfs/ubuntu")
-                            if (!envDir.exists()) envDir.mkdirs()
-                            unzipToDir(zipFile, envDir)
-                            runOnUiThread { result.success(true) }
-                        } catch (e: Exception) {
-                            runOnUiThread { result.error("RESTORE_ERROR", e.message, null) }
                         }
                     }.start()
                 }
@@ -712,34 +621,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun unzipToDir(zipFile: File, destDir: File) {
-        ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use { zis ->
-            val buffer = ByteArray(1024 * 1024)
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val outFile = File(destDir, entry.name)
-                val destCanonical = destDir.canonicalPath
-                val outCanonical = outFile.canonicalPath
-                if (outCanonical != destCanonical &&
-                    !outCanonical.startsWith(destCanonical + File.separator)) {
-                    throw SecurityException("Illegal zip entry: ${entry.name}")
-                }
-                if (entry.isDirectory) {
-                    outFile.mkdirs()
-                } else {
-                    outFile.parentFile?.mkdirs()
-                    FileOutputStream(outFile).use { fos ->
-                        var len: Int
-                        while (zis.read(buffer).also { len = it } > 0) {
-                            fos.write(buffer, 0, len)
-                        }
-                    }
-                }
-                zis.closeEntry()
-                            entry = zis.nextEntry
-        }
-    }
-    }
 
     private fun cleanGarbage(result: MethodChannel.Result, filesDir: String) {
         Thread {

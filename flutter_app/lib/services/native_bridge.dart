@@ -72,21 +72,6 @@ class NativeBridge {
     return await _channel.invokeMethod('writeRootfsFile', {'path': path, 'content': content});
   }
 
-  static Future<String> backupDataDir() async {
-    final r = await _channel.invokeMethod<String>('backupDataDir');
-    return r ?? '';
-  }
-
-  static Future<List<Map<String, dynamic>>> listBackups() async {
-    final result = await _channel.invokeMethod('listBackups');
-    if (result == null) return [];
-    return (result as List).map((e) => Map<String, dynamic>.from(e)).toList();
-  }
-
-  static Future<bool> restoreDataDir(String path) async {
-    return await _channel.invokeMethod('restoreDataDir', {'path': path});
-  }
-
   /// 清理环境内垃圾（pip 缓存 / __pycache__ / 临时文件），返回释放的字节数。
   /// 保留 Hermes 必需文件（config.yaml / .env / rootfs 整套环境）。
   static Future<int> cleanGarbage() async {
