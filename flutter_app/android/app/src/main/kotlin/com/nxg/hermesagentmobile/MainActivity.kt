@@ -736,9 +736,11 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 zis.closeEntry()
-                entry = zis.nextEntry
-            }
+                            entry = zis.nextEntry
         }
+    }
+    }
+
     private fun cleanGarbage(result: MethodChannel.Result, filesDir: String) {
         Thread {
             try {
