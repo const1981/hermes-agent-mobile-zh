@@ -152,8 +152,11 @@ class TerminalService {
       'TMPDIR=/tmp',
       'COLUMNS=$columns',
       'LINES=$rows',
+      // 打开终端即直接进入 Hermes 对话（用户要求：打开就能对话，不用手敲 hermes）。
+      // 若 hermes 尚未初始化（venv 不完整），降级为 bash 并给中文提示，避免终端直接退出。
       '/bin/bash',
-      '-l',
+      '-lc',
+      'if [ -x /root/hermes-agent/venv/bin/hermes ]; then cd /root/hermes-agent && source venv/bin/activate && exec hermes; else echo "[提示] Hermes 尚未初始化，请先到「设置 → 重新初始化」安装依赖后再对话。"; exec bash; fi',
     ]);
 
     return args;

@@ -72,7 +72,7 @@ class GatewayControls extends StatelessWidget {
                       ),
                       IconButton(
                         icon: const Icon(Icons.open_in_new, size: 18),
-                        tooltip: s.openDashboard,
+                        tooltip: '在浏览器打开（这是 API 端点，非网页，可能空白）',
                         onPressed: () {
                           final url = Uri.tryParse(state.dashboardUrl ?? AppConstants.gatewayUrl);
                           if (url != null) {
@@ -81,6 +81,14 @@ class GatewayControls extends StatelessWidget {
                         },
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '这是网关 API 地址（WebSocket），供微信 / QQ / 飞书等渠道与客户端连接，不是网页界面。'
+                    '要和 Hermes 对话请用「终端」（已改为打开即对话）。',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
                 ],
                 if (state.errorMessage != null)
