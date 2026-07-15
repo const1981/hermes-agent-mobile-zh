@@ -60,6 +60,22 @@ class BootstrapService {
     }
   }
 
+  /// proot 可用性冒烟测试：用极短超时验证 proot 能否真正拉起。
+  /// Android 模拟器（尤其 x86/x86_64）通常跑不了 arm64 的 libproot.so，
+  /// 若不做这步，后续 apt/依赖安装会一直卡到 900s 超时，表现就是"卡在某步动不了"。
+  /// 这里提前 20s 失败，给出明确提示，避免用户干等。
+  Future<bool> _prootSmokeTest() async {
+    try {
+      final out = await NativeBridge.runInProot(
+        'echo __proot_ok__',
+        timeout: 20,
+      );
+      return out.contains('__proot_ok__');
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<SetupState> checkStatus() async {
     try {
       final complete = await NativeBridge.isBootstrapComplete();
@@ -127,6 +143,14 @@ class BootstrapService {
       final rootfsUrl = AppConstants.getRootfsUrl(arch);
       final filesDir = await NativeBridge.getFilesDir();
 
+      // 模拟器（x86 / x86_64）无法执行 arm64 的 libproot.so，提前给出明确提示，
+      // 而不是一路卡到 apt 900s 超时（表现就是"卡在第二步动不了"）。
+      if (arch == 'x86' || arch == 'x86_64') {
+        throw Exception(
+            '检测到 Android 模拟器（x86 架构），无法运行 proot 环境。'
+            '本应用需要真机运行，请用实体安卓手机安装后再试。');
+      }
+
       // DNS 改国内公共 DNS（解决国内手机直连 GitHub 解析失败 / 超时）
       const resolvContent = AppConstants.prootResolv;
       try {
@@ -193,6 +217,21 @@ class BootstrapService {
           message: 'Rootfs 已存在，跳过下载与解压',
         ));
         _updateSetupNotification('Rootfs 已存在，跳过', progress: 30);
+      }
+
+      // ===== proot 可用性冒烟测试（防止模拟器/不兼容内核卡死）=====
+      // 提取完成后、进入任何 proot 依赖步骤前，先用极短超时验证 proot 能否拉起。
+      // 这一步把"卡在第二步动不了（实际卡在后续 proot 调用）"变成 20s 内给出明确提示。
+      onProgress(const SetupState(
+        step: SetupStep.installingPython,
+        progress: 0.0,
+        message: '正在验证运行环境（proot）...',
+      ));
+      final prootOk = await _prootSmokeTest();
+      if (!prootOk) {
+        throw Exception(
+            '无法在当前设备启动 proot 运行环境（常见于 Android 模拟器或个别定制内核）。'
+            '本应用需要真机运行。请用实体安卓手机安装，或在真机环境下重试。');
       }
 
       // ===== 断点续传：python3 已装则跳过权限修复 + apt =====
