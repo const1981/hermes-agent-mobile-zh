@@ -162,6 +162,12 @@ class GatewayService : Service() {
                 } catch (e: Exception) {
                     emitLog("[WARN] setupDirectories failed: ${e.message}")
                 }
+                // Ensure `hermes` CLI is on PATH (for terminal users and
+                // `hermes skills install`); covers users with an existing
+                // rootfs that predates the symlink.
+                try {
+                    bootstrapManager.ensureHermesCli()
+                } catch (_: Exception) {}
                 try {
                     bootstrapManager.writeResolvConf()
                 } catch (e: Exception) {

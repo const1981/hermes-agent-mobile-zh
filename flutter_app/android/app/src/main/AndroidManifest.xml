@@ -63,17 +63,26 @@
         <service
             android:name=".GatewayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.foregroundservice.specialuse"
+                android:value="Run the Hermes Agent background services (gateway, terminal, setup)" />
+        </service>
 
         <service
             android:name=".TerminalSessionService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.foregroundservice.specialuse"
+                android:value="Run the Hermes Agent background services (gateway, terminal, setup)" />
+        </service>
 
         <service
             android:name=".SetupService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.foregroundservice.specialuse"
+                android:value="Run the Hermes Agent background services (gateway, terminal, setup)" />
+        </service>
 
         <meta-data
             android:name="flutterEmbedding"

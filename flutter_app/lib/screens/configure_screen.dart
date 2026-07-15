@@ -334,7 +334,117 @@ class _SkillPanel extends StatelessWidget {
           value: cfg.skillMemory,
           onChanged: (v) => cfg.setSkill(memory: v),
         ),
+        const _SkillInstaller(),
       ],
+    );
+  }
+}
+
+/// 安装技能：粘贴技能地址（URL 或本地路径）一键安装。
+/// 注：搜索+一键安装的市场是 AgentSuta 新版（未来可能收费）的功能，
+/// 这里老版本只提供手动安装入口，保持免费。
+class _SkillInstaller extends StatefulWidget {
+  const _SkillInstaller();
+
+  @override
+  State<_SkillInstaller> createState() => _SkillInstallerState();
+}
+
+class _SkillInstallerState extends State<_SkillInstaller> {
+  final _ctrl = TextEditingController();
+  bool _busy = false;
+  String? _result;
+  bool _ok = false;
+
+  Future<void> _install() async {
+    final input = _ctrl.text.trim();
+    if (input.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+    try {
+      final out = await NativeBridge.runInProot(
+        'hermes skills install "$input"',
+        timeout: 300,
+      );
+      final trimmed = out.trim();
+      setState(() {
+        _ok = true;
+        _result = trimmed.isNotEmpty ? trimmed : '安装命令已执行（无输出）。';
+      });
+    } catch (e) {
+      setState(() {
+        _ok = false;
+        _result = '安装失败：$e';
+      });
+    } finally {
+      setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(icon: '📥', title: '安装技能'),
+            const SizedBox(height: 8),
+            const Text(
+              '粘贴技能地址（URL 或本地路径），或先从别处下载到手机再粘贴路径，点安装即可。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    decoration: const InputDecoration(
+                      hintText: 'https://... 或 /storage/emulated/0/.../skill',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _busy ? null : _install,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('安装'),
+                ),
+              ],
+            ),
+            if (_result != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _ok
+                      ? theme.colorScheme.primary.withOpacity(0.1)
+                      : theme.colorScheme.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  _result!,
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

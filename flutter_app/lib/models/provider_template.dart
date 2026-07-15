@@ -142,14 +142,14 @@ const List<ProviderTemplate> kProviderTemplates = [
     id: 'mimo-plan',
     name: '小米 MiMo Pro',
     icon: '📱',
-    baseUrl: 'https://api.xiaomimimo.com/v1',
+    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
     defaultModel: 'mimo-v2.5-pro',
     models: [
       'mimo-v2.5-pro',
       'mimo-v2.5',
     ],
-    description: '小米多模态 AI Pro 计划版（更高配额）',
-    keyLabel: 'Pro API Key',
+    description: '小米 MiMo Token Plan（计划版）专属地址；key 为 tp- 开头。集群变体：新加坡 token-plan-sgp、欧洲 token-plan-ams',
+    keyLabel: 'Token Plan API Key (tp-...)',
     docUrl: '',
   ),
 

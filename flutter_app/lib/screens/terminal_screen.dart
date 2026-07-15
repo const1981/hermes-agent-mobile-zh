@@ -24,6 +24,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
   String? _error;
   final _ctrlNotifier = ValueNotifier<bool>(false);
   final _altNotifier = ValueNotifier<bool>(false);
+  // Used to dedupe xterm-on-Android IME double-delivery (see onOutput below).
+  String? _lastOutputData;
+  DateTime? _lastOutputTime;
 
   static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
@@ -95,6 +98,23 @@ class _TerminalScreenState extends State<TerminalScreen> {
       });
 
       _terminal.onOutput = (data) {
+        // Workaround for xterm-on-Android double input:
+        // Some Android IMEs dispatch the same character both as commitText
+        // (via TextInput) AND as a KeyEvent, producing two identical onOutput
+        // calls within the same frame. Collapse a repeated single-character
+        // write that arrives within 50ms of the previous identical write.
+        // (Paste goes through pty.write directly and multi-char output is
+        // unaffected, so this only catches the IME duplicate.)
+        final now = DateTime.now();
+        if (data.length == 1 &&
+            _lastOutputData == data &&
+            _lastOutputTime != null &&
+            now.difference(_lastOutputTime!).inMilliseconds < 50) {
+          return; // drop the duplicate
+        }
+        _lastOutputData = data;
+        _lastOutputTime = now;
+
         if (_ctrlNotifier.value && data.length == 1) {
           final code = data.toLowerCase().codeUnitAt(0);
           if (code >= 97 && code <= 122) {
