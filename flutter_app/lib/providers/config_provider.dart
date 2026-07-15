@@ -222,7 +222,7 @@ class ConfigProvider extends ChangeNotifier {
   String toConfigYaml() => '''
 model:
   provider: ${_useCustomProvider ? 'custom' : _providerId}
-  model: $_model
+  default: $_model
   base_url: $_baseUrl
   api_key: \${HERMES_API_KEY}
 ''';
