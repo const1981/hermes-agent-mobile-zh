@@ -196,6 +196,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
+                ListTile(
+                  title: Text(s.cleanGarbage),
+                  subtitle: Text(s.cleanGarbageDesc),
+                  leading: const Icon(Icons.cleaning_services),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _cleanGarbage,
+                ),
                 const Divider(),
                 _sectionHeader(theme, s.aboutSection),
                 ListTile(
@@ -434,6 +441,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.backupFailed(e))),
+      );
+    }
+  }
+
+  Future<void> _cleanGarbage() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.cleanGarbage),
+        content: Text(s.cleanConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(s.cleaning)),
+          ],
+        ),
+      ),
+    );
+    try {
+      final freed = await NativeBridge.cleanGarbage();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.cleanDone(_fmtSize(freed)))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.cleanFailed(e.toString()))),
       );
     }
   }

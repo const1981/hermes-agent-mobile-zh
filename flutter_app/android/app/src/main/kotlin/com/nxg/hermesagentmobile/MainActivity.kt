@@ -606,6 +606,9 @@ class MainActivity : FlutterActivity() {
                         runOnUiThread { result.error("RESTART_ERROR", e.message, null) }
                     }
                 }
+                "cleanGarbage" -> {
+                    cleanGarbage(result, filesDir)
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -736,6 +739,46 @@ class MainActivity : FlutterActivity() {
                 entry = zis.nextEntry
             }
         }
+    private fun cleanGarbage(result: MethodChannel.Result, filesDir: String) {
+        Thread {
+            try {
+                val rootfs = File(filesDir, "rootfs/ubuntu")
+                var freed: Long = 0
+                if (rootfs.exists()) {
+                    // pip / apt 缓存
+                    freed += deleteDirIfExists(File(rootfs, "root/.cache"))
+                    // 临时目录
+                    freed += deleteDirIfExists(File(rootfs, "tmp"))
+                    // Python 编译缓存
+                    freed += cleanPycache(rootfs)
+                }
+                // App 侧临时下载（proot 镜像等），在 rootfs 之外
+                freed += deleteDirIfExists(File(filesDir, "dl_tmp"))
+                runOnUiThread { result.success(freed) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("CLEAN_FAILED", e.message, null) }
+            }
+        }.start()
+    }
+
+    private fun deleteDirIfExists(dir: File): Long {
+        if (!dir.exists()) return 0L
+        val size = dir.walkBottomUp().filter { it.isFile }.map { it.length() }.sum()
+        dir.deleteRecursively()
+        return size
+    }
+
+    private fun cleanPycache(root: File): Long {
+        if (!root.exists()) return 0L
+        val targets = root.walkTopDown()
+            .filter { (it.isDirectory && it.name == "__pycache__") || (it.isFile && it.extension == "pyc") }
+            .toList()
+        var freed: Long = 0
+        for (t in targets) {
+            freed += if (t.isFile) t.length() else t.walkBottomUp().filter { it.isFile }.map { it.length() }.sum()
+            t.deleteRecursively()
+        }
+        return freed
     }
 
     companion object {

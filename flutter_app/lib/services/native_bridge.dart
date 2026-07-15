@@ -87,6 +87,13 @@ class NativeBridge {
     return await _channel.invokeMethod('restoreDataDir', {'path': path});
   }
 
+  /// 清理环境内垃圾（pip 缓存 / __pycache__ / 临时文件），返回释放的字节数。
+  /// 保留 Hermes 必需文件（config.yaml / .env / rootfs 整套环境）。
+  static Future<int> cleanGarbage() async {
+    final r = await _channel.invokeMethod<int>('cleanGarbage');
+    return r ?? 0;
+  }
+
   /// 把整套已装环境(rootfs/ubuntu) 打成 zip 到固定路径 filesDir/hermes_env.zip，返回绝对路径。
   /// 供系统镜像页「打包」+ 局域网下载导出（不依赖外部存储权限）。
   static Future<String> packEnvZip() async {

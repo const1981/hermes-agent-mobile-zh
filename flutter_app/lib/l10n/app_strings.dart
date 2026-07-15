@@ -76,6 +76,13 @@ class AppStrings {
   String get pythonLabel            => isZh ? 'Python'               : 'Python'; // 技术术语保留英文
   String get hermesAgentLabel       => isZh ? 'Hermes Agent'        : 'Hermes Agent';
   String get maintenanceSection     => isZh ? '维护'                  : 'MAINTENANCE';
+  String get cleanGarbage           => isZh ? '清理垃圾'               : 'Clean Garbage';
+  String get cleanGarbageDesc       => isZh ? '清理 pip 缓存、__pycache__ 与临时文件，保留 Hermes 必需配置与环境' : 'Remove pip cache, __pycache__ and temp files; keep Hermes config & environment';
+  String get cleanConfirm           => isZh ? '将清理环境内的缓存与临时文件（不影响已安装的 Hermes 配置与环境），确定继续？' : 'Clean caches and temp files inside the environment (Hermes config & environment are kept). Continue?';
+  String get cleaning              => isZh ? '正在清理...'            : 'Cleaning...';
+  String get confirm               => isZh ? '确定'                  : 'Confirm';
+  String cleanDone(String size)     => isZh ? '清理完成，释放 $size'     : 'Cleanup done, freed $size';
+  String cleanFailed(String e)     => isZh ? '清理失败：$e'            : 'Clean failed: $e';
   String get exportSnapshot         => isZh ? '导出快照'              : 'Export Snapshot';
   String get exportSnapshotDesc     => isZh ? '备份配置到 Downloads'   : 'Backup config to Downloads';
   String get backupData             => isZh ? '备份数据包'            : 'Backup Data Package';
