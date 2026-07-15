@@ -13,6 +13,8 @@ class ProviderTemplate {
     this.keyLabel = 'API Key',
     this.keyHint = 'sk-...',
     this.docUrl,
+    this.hermesProvider,
+    this.envKey,
   });
 
   /// 唯一标识（存盘用）
@@ -44,6 +46,14 @@ class ProviderTemplate {
 
   /// 官方文档/控制台链接（帮助用户获取 Key）
   final String? docUrl;
+
+  /// Hermes config.yaml 的 model.provider 实际注册名（为 null 时用 [id]）。
+  /// 例：小米 MiMo 在 Hermes 内注册为 'xiaomi'，而非 UI 用的 'mimo'。
+  final String? hermesProvider;
+
+  /// 写入 ~/.hermes/.env 的密钥环境变量名（为 null 时用 'HERMES_API_KEY'）。
+  /// 例：小米 MiMo 必须写 XIAOMI_API_KEY，Hermes 才读得到密钥。
+  final String? envKey;
 }
 
 /// 全部预设供应商（按国内常用度排序；下拉框可滚动，常用全保留）
@@ -134,6 +144,8 @@ const List<ProviderTemplate> kProviderTemplates = [
       'mimo-v2.5-mini',
     ],
     description: '小米多模态 AI（普通版）',
+    hermesProvider: 'xiaomi',
+    envKey: 'XIAOMI_API_KEY',
     docUrl: '',
   ),
 
@@ -150,6 +162,8 @@ const List<ProviderTemplate> kProviderTemplates = [
     ],
     description: '小米 MiMo Token Plan（计划版）专属地址；key 为 tp- 开头。集群变体：新加坡 token-plan-sgp、欧洲 token-plan-ams',
     keyLabel: 'Token Plan API Key (tp-...)',
+    hermesProvider: 'xiaomi',
+    envKey: 'XIAOMI_API_KEY',
     docUrl: '',
   ),
 

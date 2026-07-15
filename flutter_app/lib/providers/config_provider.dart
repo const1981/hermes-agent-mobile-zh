@@ -49,6 +49,7 @@ class ConfigProvider extends ChangeNotifier {
   /// 受本 App 管理的 .env 键（保存时只动这些，其余键原样保留，避免丢数据）
   static const Set<String> managedKeys = {
     'HERMES_API_KEY',
+    'XIAOMI_API_KEY',
     'FEISHU_APP_ID',
     'FEISHU_APP_SECRET',
     'WECOM_BOT_ID',
@@ -88,6 +89,10 @@ class ConfigProvider extends ChangeNotifier {
       _weixinAccountId = map['WEIXIN_ACCOUNT_ID'] ?? '';
       _weixinToken = map['WEIXIN_TOKEN'] ?? '';
       if (map.containsKey('HERMES_API_KEY')) _apiKey = map['HERMES_API_KEY'] ?? '';
+      if (map.containsKey('XIAOMI_API_KEY')) {
+        final v = map['XIAOMI_API_KEY'] ?? '';
+        if (v.isNotEmpty) _apiKey = v;
+      }
       notifyListeners();
     } catch (_) {
       // 读不到就保留默认，不阻塞 UI
@@ -221,16 +226,17 @@ class ConfigProvider extends ChangeNotifier {
   /// 否则会丢掉 BootstrapManager 初始化写入的 `gateway: mode: local` 段导致网关失效）
   String toConfigYaml() => '''
 model:
-  provider: ${_useCustomProvider ? 'custom' : _providerId}
+  provider: ${_useCustomProvider ? 'custom' : (selectedTemplate?.hermesProvider ?? _providerId)}
   default: $_model
   base_url: $_baseUrl
-  api_key: \${HERMES_API_KEY}
+  api_key: \${(_useCustomProvider ? 'HERMES_API_KEY' : (selectedTemplate?.envKey ?? 'HERMES_API_KEY'))}
 ''';
 
   /// 收集当前受管键的键值（仅启用渠道写入；禁用/空值不在此列表中→保存时被移除）
   Map<String, String> managedEnvEntries() {
     final m = <String, String>{};
-    if (_apiKey.isNotEmpty) m['HERMES_API_KEY'] = _apiKey;
+    final keyName = _useCustomProvider ? 'HERMES_API_KEY' : (selectedTemplate?.envKey ?? 'HERMES_API_KEY');
+    if (_apiKey.isNotEmpty) m[keyName] = _apiKey;
     if (_feishuEnabled) {
       m['FEISHU_APP_ID'] = _feishuAppId;
       m['FEISHU_APP_SECRET'] = _feishuAppSecret;
