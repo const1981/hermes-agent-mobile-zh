@@ -9,7 +9,6 @@ import 'configure_screen.dart';
 import 'onboarding_screen.dart';
 import 'terminal_screen.dart';
 import 'gateway_screen.dart';
-import 'system_image_screen.dart';
 import 'settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -137,11 +136,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             _buildActionCard(
               theme,
-              '系统镜像',
-              '查看环境位置、打包整套环境、局域网下载导出',
-              icon: Icons.folder_zip,
+              '高级设置',
+              '环境维护：导出/导入快照、重新初始化、清理垃圾',
+              icon: Icons.settings_applications,
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SystemImageScreen()),
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
             ),
             const SizedBox(height: 20),

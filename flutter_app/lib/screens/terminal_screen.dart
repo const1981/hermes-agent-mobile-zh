@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/native_bridge.dart';
-import '../services/terminal_service.dart';
+import '../services/terminal_session_manager.dart';
 import '../widgets/terminal_toolbar.dart';
 
 class TerminalScreen extends StatefulWidget {
@@ -78,52 +77,25 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startShell();
+      _attachShell();
     });
   }
 
-  Future<void> _startShell() async {
-    _pty?.kill();
-    _pty = null;
+  /// 接管全局常驻终端进程（单例）。
+  /// 首次进入会自动拉起 proot/Hermes；返回再进直接复用，秒回对话。
+  Future<void> _attachShell() async {
     try {
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
-      final config = await TerminalService.getProotShellConfig();
-      final args = TerminalService.buildProotArgs(
-        config,
-        columns: _terminal.viewWidth,
-        rows: _terminal.viewHeight,
-      );
-
-      _pty = Pty.start(
-        config['executable']!,
-        arguments: args,
-        environment: TerminalService.buildHostEnv(config),
-        columns: _terminal.viewWidth,
-        rows: _terminal.viewHeight,
-      );
-
-      _pty!.output.cast<List<int>>().listen((data) {
+      final mgr = TerminalSessionManager.instance;
+      mgr.onOutput = (data) {
+        if (!mounted) return;
         _terminal.write(utf8.decode(data, allowMalformed: true));
-      });
-
-      _pty!.exitCode.then((code) {
+      };
+      mgr.onExit = (code) {
+        if (!mounted) return;
         _terminal.write('\r\n[Shell exited with code $code]\r\n');
-      });
+      };
+
+      _pty = await mgr.acquire();
 
       _terminal.onOutput = (data) {
         // Workaround for xterm-on-Android double input:
@@ -177,7 +149,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
-    _pty?.kill();
+    // 不 kill 进程：终端进程是全局常驻单例，返回只解绑 UI，
+    // 进程继续在后台跑，再次进入秒回对话。
+    _pty = null;
     NativeBridge.stopTerminalService();
     super.dispose();
   }
@@ -346,7 +320,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
                             _loading = true;
                             _error = null;
                           });
-                          _startShell();
+                          _attachShell();
                         },
                         icon: const Icon(Icons.refresh),
                         label: const Text('Retry'),

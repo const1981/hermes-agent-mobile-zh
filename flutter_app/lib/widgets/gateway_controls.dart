@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
-import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../models/gateway_state.dart';
 import '../providers/gateway_provider.dart';
@@ -44,53 +41,6 @@ class GatewayControls extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (state.isRunning) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          state.dashboardUrl ?? AppConstants.gatewayUrl,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy, size: 18),
-                        tooltip: s.copyUrl,
-                        onPressed: () {
-                          final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
-                          Clipboard.setData(ClipboardData(text: url));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('URL copied to clipboard'), // keep short
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.open_in_new, size: 18),
-                        tooltip: '在浏览器打开（这是 API 端点，非网页，可能空白）',
-                        onPressed: () {
-                          final url = Uri.tryParse(state.dashboardUrl ?? AppConstants.gatewayUrl);
-                          if (url != null) {
-                            launchUrl(url, mode: LaunchMode.externalApplication);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '这是网关 API 地址（WebSocket），供微信 / QQ / 飞书等渠道与客户端连接，不是网页界面。'
-                    '要和 Hermes 对话请用「终端」（已改为打开即对话）。',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
                 if (state.errorMessage != null)
                   Text(
                     state.errorMessage!,
