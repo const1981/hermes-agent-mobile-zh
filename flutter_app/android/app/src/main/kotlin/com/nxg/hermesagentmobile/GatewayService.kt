@@ -330,30 +330,14 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                 val uptimeSec = uptimeMs / 1000
                 emitLog("[INFO] Gateway exited with code $exitCode (uptime: ${uptimeSec}s)")
 
-                // If stop was requested, don't auto-restart
+                // 用户明确要求：网关只由仪表盘手动启停，崩溃后不自动重启。
+                // 进程退出（无论是否崩溃）一律标记为停止，等待用户再次点「启动网关」。
                 if (stopping) return@Thread
 
-                // If the gateway ran for >60s, it was a transient crash — reset counter
-                if (uptimeMs > 60_000) {
-                    restartCount = 0
-                }
-
-                if (isRunning && restartCount < maxRestarts) {
-                    restartCount++
-                    // Cap delay at 16s to avoid excessively long waits
-                    val delayMs = minOf(2000L * (1 shl (restartCount - 1)), 16000L)
-                    emitLog("[INFO] Auto-restarting in ${delayMs / 1000}s (attempt $restartCount/$maxRestarts)...")
-                    updateNotification("Restarting in ${delayMs / 1000}s (attempt $restartCount)...")
-                    Thread.sleep(delayMs)
-                    if (!stopping) {
-                        startTime = System.currentTimeMillis()
-                        startGateway()
-                    }
-                } else if (restartCount >= maxRestarts) {
-                    emitLog("[WARN] Max restarts reached. Gateway stopped.")
-                    updateNotification("Gateway stopped (crashed)")
-                    isRunning = false
-                }
+                restartCount = 0
+                isRunning = false
+                emitLog("[INFO] Gateway stopped (no auto-restart by design). Tap 启动网关 to start again.")
+                updateNotification("网关已停止（不自动重启）")
             } catch (e: Exception) {
                 if (!stopping) {
                     emitLog("[ERROR] Gateway error: ${e.message}")

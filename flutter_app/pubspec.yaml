@@ -1,7 +1,7 @@
 name: hermes_agent_mobile
 description: Hermes Agent - Flutter-based AI agent manager for Android with a built-in proot runtime.
 publish_to: 'none'
-version: 0.3.36+68
+version: 0.3.37+69
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
