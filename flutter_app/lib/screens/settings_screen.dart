@@ -11,6 +11,7 @@ import '../providers/locale_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import 'setup_wizard_screen.dart';
+import 'logs_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -188,6 +189,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: const Icon(Icons.cleaning_services),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _cleanGarbage,
+                ),
+                ListTile(
+                  title: const Text('查看日志'),
+                  subtitle: const Text('网关与系统运行日志'),
+                  leading: const Icon(Icons.article_outlined),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LogsScreen()),
+                  ),
                 ),
                 const Divider(),
                 _sectionHeader(theme, s.aboutSection),

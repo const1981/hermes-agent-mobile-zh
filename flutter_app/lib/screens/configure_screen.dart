@@ -13,7 +13,10 @@ const String _kCustomId = '__custom__';
 /// 配置页（对标 1Panel）：顶部 TabBar [对接 | 模型 | 技能 | 设置]，下方原生表单。
 /// 不再使用 NavigationRail（桌面组件，手机窄屏会水平溢出把内容挤出视口→白屏）。
 class ConfigureScreen extends StatefulWidget {
-  const ConfigureScreen({super.key});
+  const ConfigureScreen({super.key, this.showBack = true});
+
+  /// 是否显示左上角返回按钮。作为底部 Tab 页时不显示（避免点返回退出 App）。
+  final bool showBack;
 
   @override
   State<ConfigureScreen> createState() => _ConfigureScreenState();
@@ -42,10 +45,12 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Hermes 配置'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          leading: widget.showBack
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           bottom: const TabBar(
             isScrollable: false,
             tabs: [

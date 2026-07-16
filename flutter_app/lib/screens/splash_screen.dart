@@ -7,7 +7,7 @@ import '../l10n/app_strings.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import 'setup_wizard_screen.dart';
-import 'dashboard_screen.dart';
+import 'main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -115,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (setupComplete) {
         prefs.setupComplete = true;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => const MainScreen()),
         );
       } else {
         Navigator.of(context).pushReplacement(

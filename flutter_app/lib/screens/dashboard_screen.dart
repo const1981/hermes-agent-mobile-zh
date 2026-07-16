@@ -10,9 +10,13 @@ import 'onboarding_screen.dart';
 import 'chat_screen.dart';
 import 'gateway_screen.dart';
 import 'settings_screen.dart';
+import 'terminal_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.showSettingsButton = true});
+
+  /// 是否显示右上角设置按钮。作为底部 Tab 页时不显示（设置已在底部 Tab）。
+  final bool showSettingsButton;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -71,12 +75,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Text(s.appName),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          if (widget.showSettingsButton)
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
             ),
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -132,6 +137,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.cloud,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GatewayScreen()),
+              ),
+            ),
+            _buildActionCard(
+              theme,
+              '终端',
+              '命令行终端（高级操作 / 调试）',
+              icon: Icons.terminal,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TerminalScreen()),
               ),
             ),
             _buildActionCard(
