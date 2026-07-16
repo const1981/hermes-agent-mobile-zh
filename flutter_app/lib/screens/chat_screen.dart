@@ -145,17 +145,24 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFEDEDED),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFF7F7F7),
+        elevation: 0.5,
+        shadowColor: Colors.black12,
+        centerTitle: true,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Text('对话'),
-            Text(
-              cfg.model.isEmpty ? '主 Agent' : '主 Agent · ${cfg.model}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            if (cfg.model.isNotEmpty)
+              Text(
+                cfg.model,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  color: const Color(0xFF999999),
+                ),
               ),
-            ),
           ],
         ),
         actions: [
@@ -235,18 +242,18 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.chat_bubble_outline, size: 56, color: theme.colorScheme.outline),
+          Icon(Icons.chat_bubble_outline, size: 56, color: Colors.black.withOpacity(0.15)),
           const SizedBox(height: 12),
           Text(
             '和 AI 主 Agent 聊点什么吧',
             style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ?.copyWith(color: const Color(0xFF999999)),
           ),
           const SizedBox(height: 4),
           Text(
             '支持多轮上下文，回复流式逐字显示',
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ?.copyWith(color: const Color(0xFFB3B3B3)),
           ),
         ],
       ),
@@ -255,12 +262,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildBubble(ChatMessage msg, ThemeData theme) {
     final isUser = msg.role == 'user';
+    const avatarRadius = 19.0;
     final avatar = CircleAvatar(
-      radius: 16,
-      backgroundColor: isUser ? theme.colorScheme.primary : Colors.green,
+      radius: avatarRadius,
+      backgroundColor: isUser ? const Color(0xFF7B68EE) : Colors.green,
       child: Icon(
         isUser ? Icons.person : Icons.smart_toy,
-        size: 18,
+        size: 20,
         color: Colors.white,
       ),
     );
@@ -268,11 +276,22 @@ class _ChatScreenState extends State<ChatScreen> {
     Widget bubble;
     if (msg.isStreaming && msg.content.isEmpty) {
       bubble = Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -280,7 +299,10 @@ class _ChatScreenState extends State<ChatScreen> {
             SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
             ),
             const SizedBox(width: 8),
             Text('思考中…', style: theme.textTheme.bodySmall),
@@ -289,32 +311,52 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     } else {
       bubble = Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.68,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: isUser ? const Color(0xFF95EC69) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: isUser
+          borderRadius: isUser
+              ? const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(4),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                )
+              : const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+          boxShadow: isUser
               ? null
-              : Border.all(color: theme.colorScheme.outlineVariant),
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: SelectableText(
           msg.content,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: msg.isError ? Colors.red : Colors.black87,
+            color: msg.isError ? Colors.red : const Color(0xFF111111),
           ),
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: isUser
-            ? [bubble, const SizedBox(width: 8), avatar]
-            : [avatar, const SizedBox(width: 8), bubble],
+            ? [bubble, const SizedBox(width: 10), avatar]
+            : [avatar, const SizedBox(width: 10), bubble],
       ),
     );
   }
@@ -322,45 +364,60 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildInputBar(ThemeData theme) {
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF7F7F7),
+          border: Border(top: BorderSide(color: Color(0xFFE5E5E5))),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            IconButton(
+              icon: const Icon(Icons.volume_up, color: Color(0xFF7F7F7F)),
+              onPressed: () => _showSnack('语音输入暂未开放'),
+              tooltip: '语音',
+            ),
             Expanded(
-              child: TextField(
-                controller: _inputController,
-                minLines: 1,
-                maxLines: 5,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _send(),
-                decoration: InputDecoration(
-                  hintText: _busy ? '生成中…' : '发消息给主 Agent',
-                  filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 2),
+                child: TextField(
+                  controller: _inputController,
+                  minLines: 1,
+                  maxLines: 5,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  decoration: InputDecoration(
+                    hintText: _busy ? '生成中…' : '发消息…',
+                    hintStyle: const TextStyle(color: Color(0xFFB3B3B3)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: _busy ? Colors.grey : theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: Icon(_busy ? Icons.stop : Icons.send, color: Colors.white),
-                onPressed: _busy ? _stop : _send,
-                tooltip: _busy ? '停止' : '发送',
-              ),
+            IconButton(
+              icon: const Icon(Icons.sentiment_satisfied, color: Color(0xFF7F7F7F)),
+              onPressed: () => _showSnack('表情面板暂未开放'),
+              tooltip: '表情',
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF7F7F7F)),
+              onPressed: () => _showSnack('更多功能暂未开放'),
+              tooltip: '更多',
             ),
           ],
         ),
