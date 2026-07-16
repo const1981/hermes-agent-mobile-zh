@@ -83,8 +83,24 @@ jobs:
         shell: bash
         run: bash tools/secret_scan.sh flutter_app/build/app/outputs/flutter-apk/app-release.apk
 
+      # 从 pubspec.yaml 读版本号，把 APK 重命名成带版本号的成品名
+      # （臣哥规矩：APP 成品文件名必须带版本号，形如 hermes-agent-mobile-v0.3.xx.apk）。
+      # pubspec 里形如 "version: 0.3.33+65"，取 + 前面的 0.3.33 作为版本号。
+      - name: Rename APK with version suffix
+        id: rename_apk
+        shell: bash
+        run: |
+          set -e
+          VER=$(grep '^version:' flutter_app/pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9.]+).*/\1/')
+          echo "app version = $VER"
+          OUT="hermes-agent-mobile-v${VER}.apk"
+          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk "flutter_app/build/app/outputs/flutter-apk/${OUT}"
+          echo "apk_name=${OUT}" >> "$GITHUB_OUTPUT"
+          echo "apk_path=flutter_app/build/app/outputs/flutter-apk/${OUT}" >> "$GITHUB_OUTPUT"
+          echo "renamed -> ${OUT}"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: hermes-android-app-apk
-          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ steps.rename_apk.outputs.apk_path }}
