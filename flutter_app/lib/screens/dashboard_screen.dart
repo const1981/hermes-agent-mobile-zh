@@ -7,7 +7,7 @@ import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
 import 'configure_screen.dart';
 import 'onboarding_screen.dart';
-import 'terminal_screen.dart';
+import 'chat_screen.dart';
 import 'gateway_screen.dart';
 import 'settings_screen.dart';
 
@@ -118,11 +118,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             _buildActionCard(
               theme,
-              s.terminalTitle,
-              s.terminalDesc,
-              icon: Icons.terminal,
+              '对话',
+              '与 AI 主 Agent 聊天（流式回复）',
+              icon: Icons.chat_bubble,
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TerminalScreen()),
+                MaterialPageRoute(builder: (_) => const ChatScreen()),
               ),
             ),
             _buildActionCard(
