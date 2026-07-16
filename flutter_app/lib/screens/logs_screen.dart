@@ -113,6 +113,18 @@ class _LogsScreenState extends State<LogsScreen> {
             onPressed: () => setState(() => !_autoScroll),
           ),
           IconButton(
+            icon: const Icon(Icons.clear_all),
+            tooltip: '清空',
+            onPressed: () {
+              context.read<GatewayProvider>().clearLogs();
+              _searchController.clear();
+              setState(() => _filter = '');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已清空网关日志')),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.copy),
             tooltip: s.copyAll,
             onPressed: _copyAll,

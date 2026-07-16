@@ -241,7 +241,15 @@ class GatewayService : Service() {
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = pm.startProotProcess("cd /root/hermes-agent && source venv/bin/activate && exec python gateway/run.py")
+                    // 启动前先清理可能残留的 gateway 进程（杀后台/崩溃后旧实例没退，
+                    // 会导致 Hermes 报 "Gateway already running" 并启动失败）。
+                    emitLog("[INFO] Cleaning up stale gateway process...")
+                    val launchCmd = "cd /root/hermes-agent && source venv/bin/activate && " +
+                        "(kill -9 \$(cat /root/.hermes/gateway.pid) 2>/dev/null || true; " +
+                        "pkill -9 -f gateway/run.py 2>/dev/null || true; " +
+                        "pkill -9 -f hermes-gateway 2>/dev/null || true) && " +
+                        "exec python gateway/run.py"
+                    gatewayProcess = pm.startProotProcess(launchCmd)
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")

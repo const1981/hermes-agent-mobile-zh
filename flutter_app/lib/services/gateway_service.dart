@@ -203,6 +203,10 @@ class GatewayService {
     return NativeBridge.isGatewayRunning();
   }
 
+  void clearLogs() {
+    _updateState(_state.copyWith(logs: []));
+  }
+
   void dispose() {
     _cancelAllTimers();
     _logSubscription?.cancel();
