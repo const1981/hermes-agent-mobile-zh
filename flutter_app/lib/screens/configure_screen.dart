@@ -116,13 +116,13 @@ class _ChannelPanel extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: () => saveAndRestartGateway(context),
+            onPressed: () => saveConfigOnly(context),
             icon: const Icon(Icons.save),
-            label: const Text('保存并重启网关'),
+            label: const Text('保存配置'),
           ),
         ),
         const SizedBox(height: 12),
-        const Text('保存后会写入 ~/.hermes/.env 并自动重启网关，飞书等渠道即可在聊天里使用。',
+        const Text('配置只写入本地，不自动启动网关。保存后请到「仪表盘」点「启动网关」让配置生效。',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
@@ -244,9 +244,9 @@ class _ModelPanelState extends State<_ModelPanel> {
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => saveAndRestartGateway(context),
+                onPressed: () => saveConfigOnly(context),
                 icon: const Icon(Icons.save),
-                label: const Text('保存并重启网关'),
+                label: const Text('保存配置'),
               ),
             ),
             const SizedBox(width: 12),
@@ -300,7 +300,7 @@ class _ModelPanelState extends State<_ModelPanel> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text('选好供应商、填 Key → 保存并重启网关，无需进命令行。',
+        const Text('选好供应商、填 Key → 保存配置，再到「仪表盘」启动网关即可，无需进命令行。',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );

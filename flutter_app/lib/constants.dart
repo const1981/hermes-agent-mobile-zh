@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.34';
+  static const String version = '0.3.35';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 

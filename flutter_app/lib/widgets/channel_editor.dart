@@ -160,11 +160,11 @@ final List<ChannelField> dingtalkFields = [
 // 注：个人微信需扫码登录（Hermes 后端交互式 `hermes gateway setup` 流程），
 // 本 App 无法在表单里配置，已移除微信渠道。
 
-/// 「保存并重启网关」：写 config.yaml + 增量合并 .env，然后重启网关让 Hermes 重新加载。
-/// 对标 1Panel 的 Save and Restart Gateway。
-/// 重启后轮询网关真实状态，给出准确反馈（而非一律乐观），让「保存→重启→渠道真能用」
-/// 这一步对用户可见、可排查。
-Future<void> saveAndRestartGateway(BuildContext context) async {
+/// 【v0.3.35 修复】原实现是「保存并重启网关」——但首次配置时网关根本没启动，
+/// 显示「重启」语义错误，且启动入口散在多处让用户困惑。
+/// 现改为「只保存配置、不碰网关」：写 config.yaml + 增量合并 .env，
+/// 提示用户去仪表盘（唯一启动入口）启动网关。启动动作统一收敛到仪表盘网关卡片。
+Future<void> saveConfigOnly(BuildContext context) async {
   final cfg = context.read<ConfigProvider>();
   unawaited(showDialog<void>(
     context: context,
@@ -174,16 +174,59 @@ Future<void> saveAndRestartGateway(BuildContext context) async {
         children: [
           CircularProgressIndicator(),
           SizedBox(width: 16),
-          Expanded(child: Text('正在保存配置并重启网关…')),
+          Expanded(child: Text('正在保存配置…')),
         ],
       ),
     ),
   ));
   try {
     await cfg.writeConfigFiles();
-    final ok = await NativeBridge.restartGateway();
     if (!context.mounted) return;
-    // 重启后轮询网关真实存活状态，最多等 ~8s，给准确反馈。
+    if (context.mounted) Navigator.of(context).pop();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('配置已保存。请到「仪表盘」点「启动网关」让配置生效。'),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) Navigator.of(context).pop();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失败：$e')),
+      );
+    }
+  }
+}
+
+/// 智能保存：网关未运行时保存并启动，已运行时保存并重启。
+/// 仅用于「网关」管理页（与仪表盘同为网关生命周期入口），避免「重启一个不存在的网关」。
+Future<void> saveAndApplyGateway(BuildContext context) async {
+  final cfg = context.read<ConfigProvider>();
+  final running = await NativeBridge.isGatewayRunning();
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Expanded(child: Text('正在保存配置…')),
+        ],
+      ),
+    ),
+  ));
+  try {
+    await cfg.writeConfigFiles();
+    if (!context.mounted) return;
+    if (running) {
+      await NativeBridge.restartGateway();
+    } else {
+      await NativeBridge.startGateway();
+    }
     var alive = false;
     for (var i = 0; i < 8; i++) {
       await Future<void>.delayed(const Duration(seconds: 1));
@@ -193,14 +236,9 @@ Future<void> saveAndRestartGateway(BuildContext context) async {
     }
     if (context.mounted) Navigator.of(context).pop();
     if (context.mounted) {
-      final msg = switch ((ok, alive)) {
-        (true, true) =>
-          '配置已写入，网关已重启并运行，飞书等渠道现在即可在聊天里使用',
-        (true, false) =>
-          '配置已写入、网关重启中，稍候在聊天里试试渠道；若 30 秒后仍不可用，请到「网关」页手动重启',
-        (false, _) =>
-          '配置已保存，但网关重启失败，请到「网关」页手动重启',
-      };
+      final msg = alive
+          ? '配置已保存，网关${running ? "已重启" : "已启动"}并运行'
+          : '配置已保存，网关${running ? "重启" : "启动"}中，稍候到「仪表盘」查看状态';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
       );

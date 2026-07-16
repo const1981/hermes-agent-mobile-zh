@@ -128,14 +128,14 @@ class _GatewayScreenState extends State<GatewayScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => saveAndRestartGateway(context),
+              onPressed: () => saveAndApplyGateway(context),
               icon: const Icon(Icons.save),
-              label: const Text('保存并重启网关'),
+              label: const Text('保存并应用'),
             ),
           ),
           const SizedBox(height: 12),
           const Text(
-            '开启渠道并填好 Key → 保存并重启网关，即可在飞书/企微/钉钉里直接和 Agent 对话。',
+            '开启渠道并填好 Key → 保存并应用（未启动则启动、已运行则重启），即可在飞书/企微/钉钉里直接和 Agent 对话。',
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],

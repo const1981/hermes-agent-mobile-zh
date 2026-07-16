@@ -55,13 +55,13 @@ class GatewayControls extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () => provider.start(),
                         icon: const Icon(Icons.play_arrow),
-                        label: const Text('Start Gateway'), // keep short for button
+                        label: const Text('启动网关'),
                       ),
                     if (state.isRunning || state.status == GatewayStatus.starting)
                       OutlinedButton.icon(
                         onPressed: () => provider.stop(),
                         icon: const Icon(Icons.stop),
-                        label: const Text('Stop Gateway'), // keep short for button
+                        label: const Text('停止网关'),
                       ),
                     OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).push(
