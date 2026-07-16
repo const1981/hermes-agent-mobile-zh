@@ -29,7 +29,12 @@ class GatewayService : Service() {
         private var instance: GatewayService? = null
         private val mainHandler = Handler(Looper.getMainLooper())
 
-        private const val CLEANUP_SCRIPT = """import os, glob
+        // 【v0.3.38】网关启动脚本：清理残留进程 + 切目录 + exec 网关。
+        // 全程只用 Python 标准库（os/glob/sys），不调用 shell、不建 pipe、
+        // 不碰 /dev/null —— 规避部分 Android/proot 环境的 "Function not
+        // implemented" 问题。由 venv python 直接 exec 本脚本（不经 bash）。
+        private const val LAUNCH_SCRIPT = """import os, glob, sys
+
 me = os.getpid()
 ppid = os.getppid()
 
@@ -60,6 +65,12 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                 kill(pid)
     except Exception:
         pass
+
+# 3) Change to hermes-agent dir and exec the gateway in place.
+#    os.execv replaces the current process (no extra shell layer).
+os.chdir('/root/hermes-agent')
+venv_python = '/root/hermes-agent/venv/bin/python'
+os.execv(venv_python, [venv_python, 'gateway/run.py'])
 """
 
         /** Check if the gateway process is actually alive (not just the flag).
@@ -228,12 +239,13 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                     }
                 } catch (_: Exception) {}
 
-                // Write a Python cleanup script into the rootfs.  We use it instead of
+                // Write the Python launch script into the rootfs. We use it instead of
                 // bash command substitution / pipes because some Android/proot
                 // environments do not support /dev/null or pipes ("Function not
-                // implemented"), which causes the launch command to fail before the
-                // gateway can start.  Python file I/O and os.kill work without them.
-                ensureCleanupScript(filesDir)
+                // implemented"), and /bin/bash exec of the python binary also fails
+                // with ENOSYS. Python file I/O, os.kill, os.chdir and os.execv all
+                // work without a shell layer.
+                ensureLaunchScript(filesDir)
 
                 // Abort if stop was requested during setup
                 if (stopping) return@Thread
@@ -283,13 +295,13 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                         emitLog("[INFO] Cleaning up stale gateway process...")
                         // 注意：v0.3.29 用 pkill -f gateway/run.py 会把自己的 shell 也匹配上并
                         // SIGKILL（exit 137 自杀）。v0.3.31 改用 bash 命令替换，但部分 Android/proot
-                        // 环境里 /dev/null 和 pipe 不支持，命令替换直接失败。v0.3.32 改为：
-                        // ① 用 Python 清理脚本（只读 /proc 文件，不创建 pipe/不访问 /dev/null）
-                        // ② 直接执行 ./venv/bin/python，不依赖 source 激活 PATH，也不写 2>/dev/null
-                        val launchCmd = "cd /root/hermes-agent && " +
-                            "./venv/bin/python /root/.hermes/cleanup_gateway.py && " +
-                            "exec ./venv/bin/python gateway/run.py"
-                        gatewayProcess = pm.startProotProcess(launchCmd)
+                        // 环境里 /dev/null 和 pipe 不支持，命令替换直接失败。v0.3.32 改 Python 清理
+                        // 脚本，但仍经 /bin/bash -c 启动，本机 proot 下 bash exec python 报
+                        // "Function not implemented"（ENOSYS），网关 0 秒崩（exit 137）。
+                        // v0.3.38：彻底去掉 bash 中间层——由 venv python 直接 exec launch 脚本，
+                        // 脚本内 os.chdir + os.execv 完成切目录与启动，全程无 shell。
+                        val launchScript = "/root/.hermes/launch_gateway.py"
+                        gatewayProcess = pm.startProotProcess(launchScript)
                     }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")
@@ -348,11 +360,11 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
         }.also { it.start() }
     }
 
-    private fun ensureCleanupScript(filesDir: String) {
+    private fun ensureLaunchScript(filesDir: String) {
         try {
-            val script = File("$filesDir/rootfs/ubuntu/root/.hermes/cleanup_gateway.py")
+            val script = File("$filesDir/rootfs/ubuntu/root/.hermes/launch_gateway.py")
             script.parentFile?.mkdirs()
-            script.writeText(CLEANUP_SCRIPT)
+            script.writeText(LAUNCH_SCRIPT)
         } catch (_: Exception) {}
     }
 

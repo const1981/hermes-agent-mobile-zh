@@ -198,10 +198,18 @@ class ProcessManager(
 
     // ================================================================
     // GATEWAY MODE — matches proot-distro's command_login()
-    // Used for: running hermes gateway (long-lived Node.js process).
+    // Used for: running hermes gateway (long-lived Python process).
     // Full featured: --sysvipc, full uname struct, more guest env vars.
+    //
+    // 【v0.3.38 修复】原实现用 `/bin/bash -c <shell命令>` 包一层 bash 来
+    // 启动网关。但在部分 Android/proot 环境里，bash 执行 `exec` 子进程会报
+    // "Function not implemented"（ENOSYS），导致 python 二进制起不来、网关
+    // 0 秒崩溃（exit 137）。改为【直接 exec 形式】运行 venv 里的 python
+    // 解释器去跑 launch 脚本——不经过任何 shell，避免 bash 中间层。
+    // launch 脚本内部用 os.chdir + os.execv 完成"切目录+启动网关"，
+    // 同样不依赖 shell 的 cd/&&/exec 内建。
     // ================================================================
-    fun buildGatewayCommand(command: String): List<String> {
+    fun buildGatewayCommand(scriptPath: String): List<String> {
         val flags = commonProotFlags().toMutableList()
         val arch = ArchUtils.getArch()
         // Map to uname -m format
@@ -220,7 +228,9 @@ class ProcessManager(
             "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
         flags.add(3, "--kernel-release=$kernelRelease")
 
-        // Guest environment via env -i (matching proot-distro command_login)
+        // Guest environment via env -i (matching proot-distro command_login).
+        // 直接以 venv python 解释器 exec launch 脚本，不走 /bin/bash。
+        val venvPython = "/root/hermes-agent/venv/bin/python"
         flags.addAll(listOf(
             "/usr/bin/env", "-i",
             "HOME=/root",
@@ -229,8 +239,8 @@ class ProcessManager(
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
-            "/bin/bash", "-c",
-            command,
+            venvPython,
+            scriptPath,
         ))
 
         return flags
@@ -308,9 +318,11 @@ class ProcessManager(
     // ================================================================
     // Start a long-lived gateway process (gateway mode).
     // Uses full proot-distro command_login() style configuration.
+    // 【v0.3.38】scriptPath 为 rootfs 内的 python 脚本绝对路径，
+    // 由 venv python 直接 exec（不经 shell）。
     // ================================================================
-    fun startProotProcess(command: String): Process {
-        val cmd = buildGatewayCommand(command)
+    fun startProotProcess(scriptPath: String): Process {
+        val cmd = buildGatewayCommand(scriptPath)
         val env = prootEnv()
 
         val pb = ProcessBuilder(cmd)
