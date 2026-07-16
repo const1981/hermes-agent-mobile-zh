@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.27';
+  static const String version = '0.3.28';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
@@ -37,7 +37,7 @@ class AppConstants {
     'https://gitee.com/mirrors/hermes-agent.git',
   ];
 
-  /// proot 内 DNS：国内手机用 Google DNS(8.8.8.8) 常常解析失败，改用国内公共 DNS。
+  /// proot 内 DNS：统一使用国内公共 DNS（119.29.11.29 / 223.5.5.5），避免海外 DNS 解析失败。
   static const String prootResolv =
       'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
 

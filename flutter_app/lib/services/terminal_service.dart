@@ -36,7 +36,7 @@ class TerminalService {
 
     // Direct Dart fallback: create resolv.conf if it still doesn't exist
     // after the native method channel calls (#40).
-    const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+    const resolvContent = 'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
     try {
       final resolvFile = File('$configDir/resolv.conf');
       if (!resolvFile.existsSync()) {

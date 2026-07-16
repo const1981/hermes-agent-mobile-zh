@@ -63,7 +63,7 @@ class ProcessManager(
      * commonProotFlags(), so resolv.conf is guaranteed for all callers.
      */
     private fun ensureResolvConf() {
-        val content = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        val content = "nameserver 119.29.11.29\nnameserver 223.5.5.5\n"
 
         // Primary: host-side file used by --bind mount
         try {

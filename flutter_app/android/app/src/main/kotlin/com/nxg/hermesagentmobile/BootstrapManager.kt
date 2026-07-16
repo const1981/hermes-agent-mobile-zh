@@ -738,7 +738,7 @@ gateway:
 
     /**
      * Read DNS servers from Android's active network. Falls back to
-     * Google DNS (8.8.8.8, 8.8.4.4) if system DNS is unavailable (#60).
+     * domestic public DNS (119.29.11.29, 223.5.5.5) if system DNS is unavailable (#60).
      */
     private fun getSystemDnsServers(): String {
         try {
@@ -750,13 +750,13 @@ gateway:
                     val dnsServers = linkProps?.dnsServers
                     if (dnsServers != null && dnsServers.isNotEmpty()) {
                         val lines = dnsServers.joinToString("\n") { "nameserver ${it.hostAddress}" }
-                        // Always append Google DNS as fallback
-                        return "$lines\nnameserver 8.8.8.8\n"
+                        // Always append domestic public DNS as fallback
+                        return "$lines\nnameserver 119.29.11.29\nnameserver 223.5.5.5\n"
                     }
                 }
             }
         } catch (_: Exception) {}
-        return "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        return "nameserver 119.29.11.29\nnameserver 223.5.5.5\n"
     }
 
     fun writeResolvConf() {

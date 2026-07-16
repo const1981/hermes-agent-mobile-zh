@@ -61,7 +61,7 @@ class TerminalSessionManager {
     try { await NativeBridge.writeResolv(); } catch (_) {}
     try {
       final filesDir = await NativeBridge.getFilesDir();
-      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+      const resolvContent = 'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
       final resolvFile = File('$filesDir/config/resolv.conf');
       if (!resolvFile.existsSync()) {
         Directory('$filesDir/config').createSync(recursive: true);
