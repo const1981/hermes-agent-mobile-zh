@@ -75,7 +75,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
   }
 }
 
-/// 对接：飞书 / 企业微信 / 钉钉（就地配 Key，保存即重启网关）
+/// 对接：飞书 / 企业微信 / 钉钉（就地配 Key，只保存不碰网关）
 /// 注：个人微信需扫码登录（Hermes 后端交互式流程），本 App 暂不支持，已移除。
 class _ChannelPanel extends StatelessWidget {
   const _ChannelPanel();
@@ -88,7 +88,7 @@ class _ChannelPanel extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 4),
-          child: Text('配置沟通渠道（飞书/企微/钉钉），开启后保存会自动重启网关生效。',
+          child: Text('配置沟通渠道（飞书/企微/钉钉），保存后只写入本地，请到「仪表盘」点「启动网关」让配置生效。',
               style: TextStyle(color: Colors.grey, fontSize: 12)),
         ),
         ChannelEditor(

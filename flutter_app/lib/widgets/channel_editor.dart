@@ -201,57 +201,5 @@ Future<void> saveConfigOnly(BuildContext context) async {
   }
 }
 
-/// 智能保存：网关未运行时保存并启动，已运行时保存并重启。
-/// 仅用于「网关」管理页（与仪表盘同为网关生命周期入口），避免「重启一个不存在的网关」。
-Future<void> saveAndApplyGateway(BuildContext context) async {
-  final cfg = context.read<ConfigProvider>();
-  final running = await NativeBridge.isGatewayRunning();
-  unawaited(showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const AlertDialog(
-      content: Row(
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(width: 16),
-          Expanded(child: Text('正在保存配置…')),
-        ],
-      ),
-    ),
-  ));
-  try {
-    await cfg.writeConfigFiles();
-    if (!context.mounted) return;
-    if (running) {
-      await NativeBridge.restartGateway();
-    } else {
-      await NativeBridge.startGateway();
-    }
-    var alive = false;
-    for (var i = 0; i < 8; i++) {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!context.mounted) return;
-      alive = await NativeBridge.isGatewayRunning();
-      if (alive) break;
-    }
-    if (context.mounted) Navigator.of(context).pop();
-    if (context.mounted) {
-      final msg = alive
-          ? '配置已保存，网关${running ? "已重启" : "已启动"}并运行'
-          : '配置已保存，网关${running ? "重启" : "启动"}中，稍候到「仪表盘」查看状态';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
-      );
-    }
-  } catch (e) {
-    if (context.mounted) Navigator.of(context).pop();
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：$e')),
-      );
-    }
-  }
-}
-
 // 轻量 unawaited（避免引入额外依赖）
 void unawaited(Future<void>? future) {}

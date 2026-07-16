@@ -8,7 +8,6 @@ import '../widgets/status_card.dart';
 import 'configure_screen.dart';
 import 'onboarding_screen.dart';
 import 'chat_screen.dart';
-import 'gateway_screen.dart';
 import 'settings_screen.dart';
 import 'terminal_screen.dart';
 
@@ -128,15 +127,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.chat_bubble,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ChatScreen()),
-              ),
-            ),
-            _buildActionCard(
-              theme,
-              '网关',
-              '渠道对接与网关状态（飞书/企微/钉钉）',
-              icon: Icons.cloud,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const GatewayScreen()),
               ),
             ),
             _buildActionCard(
