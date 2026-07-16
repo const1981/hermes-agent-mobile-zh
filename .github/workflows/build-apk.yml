@@ -75,6 +75,14 @@ jobs:
         env:
           GRADLE_OPTS: "-Xmx4g"
 
+      # 发布前密钥扫描门禁（apk-security-scan 技能）：反编译 APK 扫 smali 中
+      # 硬编码高置信密钥（sk-/ghp_/AKIA/JWT/私钥 等实值）。发现即 FAIL
+      # 构建，不发布漏 key 的包。API key 须走 ~/.hermes/.env 的 ${VAR} 引用。
+      # 注意：脚本只匹配"密钥实值形状"，不匹 key 名本身，避免误杀构建。
+      - name: Secret scan gate (apk-security-scan)
+        shell: bash
+        run: bash tools/secret_scan.sh flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
