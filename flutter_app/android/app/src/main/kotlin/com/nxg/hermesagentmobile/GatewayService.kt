@@ -29,6 +29,39 @@ class GatewayService : Service() {
         private var instance: GatewayService? = null
         private val mainHandler = Handler(Looper.getMainLooper())
 
+        private const val CLEANUP_SCRIPT = """import os, glob
+me = os.getpid()
+ppid = os.getppid()
+
+def kill(pid):
+    try:
+        os.kill(int(pid), 9)
+    except Exception:
+        pass
+
+# 1) Kill by Hermes PID file (most reliable)
+try:
+    with open('/root/.hermes/gateway.pid') as f:
+        pid = int(f.read().strip())
+        if pid != me and pid != ppid:
+            kill(pid)
+except Exception:
+    pass
+
+# 2) Fallback: scan /proc for any stale gateway processes.
+#    Use file I/O only — no subprocess/pipes/dev-null.
+for p in glob.glob('/proc/[0-9]*/cmdline'):
+    try:
+        with open(p, 'rb') as f:
+            cmd = f.read().replace(b'\\x00', b' ').decode('utf-8', 'replace')
+        if 'gateway/run.py' in cmd or 'hermes-gateway' in cmd:
+            pid = int(p.split('/')[2])
+            if pid != me and pid != ppid:
+                kill(pid)
+    except Exception:
+        pass
+"""
+
         /** Check if the gateway process is actually alive (not just the flag).
          *  Safe to call from the main thread — no blocking I/O. */
         fun isProcessAlive(): Boolean {
@@ -195,6 +228,13 @@ class GatewayService : Service() {
                     }
                 } catch (_: Exception) {}
 
+                // Write a Python cleanup script into the rootfs.  We use it instead of
+                // bash command substitution / pipes because some Android/proot
+                // environments do not support /dev/null or pipes ("Function not
+                // implemented"), which causes the launch command to fail before the
+                // gateway can start.  Python file I/O and os.kill work without them.
+                ensureCleanupScript(filesDir)
+
                 // Abort if stop was requested during setup
                 if (stopping) return@Thread
 
@@ -237,24 +277,23 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
-                emitLog("[INFO] Spawning proot process...")
-                synchronized(lock) {
-                    if (stopping) return@Thread
-                    processStartTime = System.currentTimeMillis()
-                    // 启动前先清理可能残留的 gateway 进程（杀后台/崩溃后旧实例没退，
-                    // 会导致 Hermes 报 "Gateway already running" 并启动失败）。
-                    emitLog("[INFO] Cleaning up stale gateway process...")
-                    // 注意：不能用 pkill -f gateway/run.py —— 本启动命令自身的命令行就含
-                    // "gateway/run.py"，pkill -f 会把自己的 shell 也匹配上并 SIGKILL（exit 137
-                    // 自杀），导致网关永远起不来。改用 pgrep 列出候选 PID，排除当前 shell（$$）
-                    // 后再 kill，只清掉真正残留的旧实例。
-                    val launchCmd = "cd /root/hermes-agent && source venv/bin/activate && " +
-                        "(kill -9 \$(cat /root/.hermes/gateway.pid) 2>/dev/null || true; " +
-                        "for p in \$(pgrep -f 'gateway/run.py'); do [ \"\$p\" != \"\$\$\" ] && kill -9 \"\$p\" 2>/dev/null; done; " +
-                        "for p in \$(pgrep -f 'hermes-gateway'); do [ \"\$p\" != \"\$\$\" ] && kill -9 \"\$p\" 2>/dev/null; done) && " +
-                        "exec python gateway/run.py"
-                    gatewayProcess = pm.startProotProcess(launchCmd)
-                }
+                    emitLog("[INFO] Spawning proot process...")
+                    synchronized(lock) {
+                        if (stopping) return@Thread
+                        processStartTime = System.currentTimeMillis()
+                        // 启动前先清理可能残留的 gateway 进程（杀后台/崩溃后旧实例没退，
+                        // 会导致 Hermes 报 "Gateway already running" 并启动失败）。
+                        emitLog("[INFO] Cleaning up stale gateway process...")
+                        // 注意：v0.3.29 用 pkill -f gateway/run.py 会把自己的 shell 也匹配上并
+                        // SIGKILL（exit 137 自杀）。v0.3.31 改用 bash 命令替换，但部分 Android/proot
+                        // 环境里 /dev/null 和 pipe 不支持，命令替换直接失败。v0.3.32 改为：
+                        // ① 用 Python 清理脚本（只读 /proc 文件，不创建 pipe/不访问 /dev/null）
+                        // ② 直接执行 ./venv/bin/python，不依赖 source 激活 PATH，也不写 2>/dev/null
+                        val launchCmd = "cd /root/hermes-agent && " +
+                            "./venv/bin/python /root/.hermes/cleanup_gateway.py && " +
+                            "exec ./venv/bin/python gateway/run.py"
+                        gatewayProcess = pm.startProotProcess(launchCmd)
+                    }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")
                 startUptimeTicker()
@@ -326,6 +365,14 @@ class GatewayService : Service() {
                 }
             }
         }.also { it.start() }
+    }
+
+    private fun ensureCleanupScript(filesDir: String) {
+        try {
+            val script = File("$filesDir/rootfs/ubuntu/root/.hermes/cleanup_gateway.py")
+            script.parentFile?.mkdirs()
+            script.writeText(CLEANUP_SCRIPT)
+        } catch (_: Exception) {}
     }
 
     private fun stopGateway() {
