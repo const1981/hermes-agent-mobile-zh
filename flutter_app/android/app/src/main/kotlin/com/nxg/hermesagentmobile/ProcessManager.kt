@@ -243,7 +243,11 @@ class ProcessManager(
     // Execute a command in proot (install mode) and return output.
     // Used during bootstrap for apt, chmod, etc.
     // ================================================================
-    fun runInProotSync(command: String, timeoutSeconds: Long = 900): String {
+    // 【v0.3.34 修复】默认超时从 900s 降到 60s。原 900s 会让任何 proot 卡死
+    // （bind mount 失败 / rootfs 异常）都卡 15 分钟才报失败，表现为"网关起不来"。
+    // 60s 足够正常 proot 冷启动（慢机 ~15s），又不会让用户干等。
+    // 调用方可按需传更大值（如 skills install 传 300s）。
+    fun runInProotSync(command: String, timeoutSeconds: Long = 60): String {
         val cmd = buildInstallCommand(command)
         val env = prootEnv()
 

@@ -260,6 +260,11 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                 // 引导只检查 run.py 在不在，pip 失败会导致「完成」但依赖缺失，
                 // 网关一启动就 ImportError 秒退、proot 整体退出 → 表现为「启动即关闭」。
                 // 这里提前发现，给出清晰中文报错，而不是崩→重启→崩死循环。
+                // 【v0.3.34 修复】原实现会在启动前先 runInProotSync 跑一次
+                // `hermes --version` 做"软自检"——但每次都要冷启动一个完整 proot
+                // 进程，中低端机/异常 rootfs 下会卡 15 分钟（默认 900s 超时），
+                // 表现为「网关一直 starting 起不来」。改为只检查文件存在，
+                // 真正的运行校验交给下方 launchCmd 本身（失败看 stderr 日志即可）。
                 val hermesBin = File("$filesDir/rootfs/ubuntu/root/hermes-agent/venv/bin/hermes")
                 if (!hermesBin.exists()) {
                     emitLog("[ERROR] Hermes 依赖未安装完整（venv/bin/hermes 不存在）。请前往「设置 → 重新初始化」修复后，再启动网关。")
@@ -267,15 +272,7 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
                     isRunning = false
                     return@Thread
                 }
-                try {
-                    val hermesVer = pm.runInProotSync("cd /root/hermes-agent && ./venv/bin/hermes --version 2>&1")
-                    emitLog("[INFO] Hermes venv 自检通过: ${hermesVer.trim().take(120)}")
-                } catch (e: Exception) {
-                    emitLog("[ERROR] Hermes venv/bin/hermes 运行失败: ${e.message}。请「设置 → 重新初始化」后重试。")
-                    updateNotification("Hermes 依赖异常，请重新初始化")
-                    isRunning = false
-                    return@Thread
-                }
+                emitLog("[INFO] Hermes venv 文件就绪，跳过 proot 软自检（避免冷启动卡死）")
 
                     emitLog("[INFO] Spawning proot process...")
                     synchronized(lock) {

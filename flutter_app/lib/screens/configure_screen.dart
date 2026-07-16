@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/provider_template.dart';
 import '../providers/config_provider.dart';
@@ -259,17 +260,28 @@ class _ModelPanelState extends State<_ModelPanel> {
                     );
                     return;
                   }
-                  try {
-                    final out = await NativeBridge.runInProot(
-                      'curl -s -o /dev/null -w "%{http_code}" -m 20 "${cfg.baseUrl}/models" '
-                      '-H "Authorization: Bearer ${cfg.apiKey}"',
-                      timeout: 30,
+                  // 【v0.3.34 修复】原实现走 NativeBridge.runInProot 在 proot 里跑 curl，
+                  // 每次都要冷启动一个完整 proot 进程（中低端机 5~15s），点一下要等半天。
+                  // 改成 App 直接对供应商地址发 HTTP 请求，秒回，不依赖 proot。
+                  final url = Uri.tryParse('${cfg.baseUrl}/models');
+                  if (url == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('模型地址格式不正确')),
                     );
+                    return;
+                  }
+                  try {
+                    final resp = await http
+                        .get(
+                          url,
+                          headers: {'Authorization': 'Bearer ${cfg.apiKey}'},
+                        )
+                        .timeout(const Duration(seconds: 20));
                     if (!mounted) return;
-                    final code = out.trim();
+                    final code = resp.statusCode;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(code == '200'
+                        content: Text(code == 200
                             ? '连通正常（HTTP 200），Key 有效'
                             : '测试返回：$code（非 200 请检查 Key/地址）'),
                       ),
