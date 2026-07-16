@@ -1,13 +1,15 @@
-# Hermes 手机端（安卓 hermes · 中文版）
+# Hermes 手机端（安卓 · 中文版）
 
-> 手机本地运行 Hermes Agent 的调度层，**只有大模型推理走云端 API**。不是云端服务器、不在手机上跑模型。
+> **当前状态：生产稳定 — 维护态**
 
-本仓库是**原创实现**（参考了 `amirghm/hermes-agent-mobile` 的"手机本地跑 Agent"思路，但代码完全自己写、更轻）。
-核心理念：**Agent 本体完整驻留手机本地，仅 LLM 推理请求发往云端 OpenAI 兼容接口**。
+手机本地运行 Hermes Agent 的调度层，**只有大模型推理走云端 API**。不是云端服务器、不在手机上跑模型。
+
+**最新版本：v0.3.25+57**（2026-07-15 发布）  
+**许可证：[AGPL-3.0](LICENSE)**（2026-07-16 由 MIT 迁移至 AGPLv3）
 
 ---
 
-## 一、它到底是什么
+## 一、项目定位
 
 | 部分 | 跑在哪 | 说明 |
 |------|--------|------|
@@ -16,125 +18,138 @@
 | **大模型推理** | 云端 API | 仅把 prompt 发往 OpenRouter / 智谱 / DeepSeek / Kimi 等，收到回答后本地继续调度 |
 | **配置 / 密钥 / 记忆** | 手机本地 | 全部存在 `~/.hermes/`，不经过任何第三方服务器 |
 
-### 和两种"伪本地"方案的区别
-
-- ❌ **纯远程控制 APP**：手机只发指令、云端跑 Hermes（这不是本方案）
-- ❌ **手机本地跑大模型**：Ollama / 量化模型本地推理（你明确不需要，太吃资源）
-- ✅ **本方案**：Hermes 本体完整在手机本地，仅 LLM 推理走云端 API
+**核心差异：** 市面上其他方案要么是"纯远程控制 APP"（手机只发指令、云端跑 Hermes），要么是"手机本地跑大模型"（Ollama / 量化模型本地推理，太吃资源）。本方案 **Hermes 本体完整在手机本地，仅 LLM 推理走云端 API**，兼得随身可用与性能。
 
 ---
 
-## 二、特性
+## 二、特性一览
 
-- 🏠 **随身可用**：Assistant 在你口袋里，不用开电脑、不用连服务器
-- 💬 **Telegram 网关**（可选）：用 Telegram 给 Agent 发消息/语音/文件，像带了个团队
-- 🔋 **可后台保活**：配合[后台保活指南](docs/后台保活指南.md)，锁屏也能 24/7 跑
-- 💰 **成本可控**：默认走 OpenRouter 聚合多家模型（**OpenRouter 无免费模型，需自备付费 key**）；也支持国内智谱/DeepSeek/Kimi（部分有免费额度）
-- 🔒 **数据留本地**：对话与记忆存在手机，云端只传 prompt
-- 🪶 **极简**：纯 Termux 脚本路线无需 proot、存储占用小；App 路线自带 proot + Ubuntu 运行环境，全程界面点按（两条路线并存，见第三节）
-- 🌐 **全中文界面 + 中英文切换**（App v0.3.0+）：默认中文，设置页可切「跟随系统 / 简体中文 / English」，为出海做准备
-- 🎨 **新图标**（App v0.3.0+）：赫尔墨斯（带翅膀的使者）主题图标
+| 特性 | 说明 |
+|------|------|
+| 🏠 **随身可用** | Assistant 在你口袋里，不用开电脑、不用连服务器 |
+| 💬 **消息渠道网关** | 飞书 / 企业微信 / 钉钉 三种渠道填 Key 即配，Telegram 可额外配置 |
+| 🔋 **后台保活** | 3 个前台 Service（网关/终端/安装）+ 配合保活指南，锁屏也能 24/7 跑 |
+| 💰 **成本可控** | 支持 OpenRouter / 智谱 / DeepSeek / Kimi / 小米 MiMo / SiliconFlow 等，国内厂商有免费额度 |
+| 🔒 **数据留本地** | 对话与记忆存在手机 `filesDir/rootfs/ubuntu`，云端只传 prompt |
+| 🌐 **中英文切换** | 默认中文，设置页可切「跟随系统 / 简体中文 / English」|
+| 🎨 **一键安装** | APK 内置 proot + Ubuntu 运行环境，点图标即用，5 步向导全程界面点按 |
+| ⏱ **断点续传** | rootfs / Python / Hermes 已存在则跳过，第 4 步卡只重第 4 步 |
+| 🚀 **终端常驻** | 单例 `TerminalSessionManager`，返回再进秒回对话，不冷启动 |
+| 📋 **日志筛选** | 今天 / 近 1 小时 / 近 24 小时 / 全部时间范围 |
+| 💾 **系统镜像** | Ghost 式打包导出 `rootfs/ubuntu`，可本地或局域网下载 |
 
 ---
 
-## 三、前置要求（APK 路线，推荐）
+## 三、App 架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Flutter App (Dart UI)                                 │
+│  Splash / Dashboard / Configure(四Tab) / Terminal       │
+│  Gateway / Settings / SystemImage / Logs               │
+├─────────────────────────────────────────────────────────┤
+│  Providers (状态管理)                                    │
+│  Config / Gateway / Locale / Setup                     │
+├─────────────────────────────────────────────────────────┤
+│  Services (业务层)                                       │
+│  Bootstrap / Gateway / Terminal / TerminalSessionMgr    │
+├─────────────────────────────────────────────────────────┤
+│  NativeBridge (MethodChannel) ~40+ methods              │
+├─────────────────────────────────────────────────────────┤
+│  Android Kotlin Layer                                   │
+│  MainActivity / BootstrapManager / ProcessManager       │
+│  GatewayService(前台) / ArchUtils                       │
+├─────────────────────────────────────────────────────────┤
+│  proot + Ubuntu 24.04 (ARM64 运行环境)                   │
+├─────────────────────────────────────────────────────────┤
+│  Hermes Agent 引擎 (Python, 手机本地调度)                 │
+│  功能：思考链 / 工具调用 / 记忆库 / 多轮对话 / 任务队列     │
+└─────────────────────────────────────────────────────────┘
+```
+
+核心数据流：安装向导 → proot 内装 Hermes → 填 Key 配模型 → 启网关 (18789) → 终端对话
+
+---
+
+## 四、前置要求
 
 | 项目 | 说明 |
 |------|------|
-| 手机系统 | 安卓 8+（iOS 暂不做，沙盒限制无法本地驻留进程） |
-| 应用 | **Hermes Android App（本仓库构建的 APK）** —— 自带运行环境，**无需先装 Termux** |
-| 存储 | 装 APK 约 30MB；首次运行会下载 Ubuntu 运行环境，需额外约 500MB~1GB |
+| 手机系统 | 安卓 8+（仅支持 ARM64 / armeabi-v7a，不支持 x86/x86_64 模拟器） |
+| 存储 | 装 APK 约 40MB；首次运行需约 500MB~1GB（rootfs + pip 依赖） |
 | 网络 | 能访问 GitHub / PyPI / Ubuntu 镜像 / 你选的模型 API |
-| 密钥 | 任一云端 LLM 的 API Key（见下方"获取 Key"） |
-
->  见 [安装指南.md](安装指南.md) 附录。
+| 密钥 | 任一云端 LLM 的 API Key |
 
 ---
 
-## 四、一键安装（推荐：先装 App，Termux 不用装）
+## 五、安装使用
 
-**完整图文步骤见 [安装指南.md](安装指南.md)。** 简要流程：
+### 方式一：APK 一键安装（推荐）
 
-1. 安装本仓库构建的 APK（Hermes Android App）。
-2. 打开 App → 首次「Setup」向导点 **Begin Setup** → App 自动下载 Ubuntu + 安装 Hermes（约几分钟，需联网）。
-3. 进 Dashboard → 启动网关（本机 `127.0.0.1:18789`）。
-4. 点「Configure」→ 内置终端跑 `hermes setup` → 选服务商 + 填你的 API Key。
-5. 按 [后台保活指南](docs/后台保活指南.md) 设置后台保活。
+1. 从 [GitHub Releases](https://github.com/const1981/hermes-agent-mobile-zh/releases) 下载最新 `app-release.apk`（签名 `77f68bb3`，覆盖升级不丢数据）
+2. 打开 App → **Begin Setup** → App 自动下载 Ubuntu + 安装 Hermes（约 5–15 分钟）
+3. 进 Dashboard → 启动网关（本机 `127.0.0.1:18789`）
+4. 点「Configure」→ 选服务商 + 填 API Key → 保存重启网关
+5. 点「对话终端」进入 Hermes 对话
 
-> App 的「一键安装」是**自带的**：它在 App 私有目录里用内置 proot 解包 Ubuntu、克隆并安装 Hermes，**不调用 `scripts/install-termux.sh`、也不需要 Termux**。全程界面点按，无需命令行。
-
-**可选 ·   路线（ **：
+### 方式二：Termux 脚本（备选/排障）
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/const1981/hermes-agent-mobile-zh/main/scripts/install-termux.sh)
 ```
 
-该脚本会依次：选大模型提供商 → 收集 API Key → 设清华 pip 镜像 → 调用上游官方安装器装好 `hermes-agent`（Termux 原生，已排除本地语音依赖）→ 写中文配置 → 可选启动 Telegram 网关。
+---
+
+## 六、版本轨迹（v0.3.19 → v0.3.25）
+
+| 版本 | 日期 | 关键更新 |
+|------|------|----------|
+| v0.3.25 | 2026-07-15 | 移除微信渠道（扫码登录需另做），保留飞书/企微/钉钉 |
+| v0.3.24 | 2026-07-15 | **根治 config.yaml 解析失败**（YAML 引号+块替换修复） |
+| v0.3.23 | 2026-07-15 | 修复模拟器卡在第二步（proot 前置检测 20s 短超时报错） |
+| v0.3.22 | 2026-07-15 | **终端进程常驻** / 日志时间筛选 / MiMo key 映射修复 |
+| v0.3.21 | 2026-07-15 | 修复 MiMo key 映射（provider `mimo`→`xiaomi`） |
+| v0.3.20 | 2026-07-15 | **P0 修复 config 写盘 schema** / 移除整文件夹备份 / 终端美化 / 安装引导横幅 |
+| v0.3.19 | 2026-07-15 | **根治网关自关 & hermes not found** / 清理垃圾 / 图标去白边 |
+
+完整轨迹见 [项目进度与接手说明.md](项目进度与接手说明.md)。
 
 ---
 
-## 五、获取 API Key
-
-| 提供商 | 免费额度 | 申请地址 |
-|--------|----------|----------|
-| **OpenRouter** | ❌ **无免费模型，需自备付费 key**（默认 `openai/gpt-4o-mini`，可自行替换） | https://openrouter.ai/keys |
-| **智谱 GLM** | `glm-4-flash`（有免费额度） | https://open.bigmodel.cn/usercenter/apikeys |
-| **DeepSeek** | `deepseek-chat`（有优惠 / 赠送额度） | https://platform.deepseek.com/api_keys |
-| **Kimi（月之暗面）** | `moonshot-v1-8k`（有免费额度） | https://platform.moonshot.cn/console/api-keys |
-
-> ⚠️ **OpenRouter 已无免费模型**：之前文档写的 `xiaomi/mimo-v2.5`（免费）已不可用，已从预设中**删除**。请使用你自己的付费 key（任意 OpenAI 兼容模型均可，默认 `openai/gpt-4o-mini`）。
-
----
-
-## 六、常用命令
-
-```bash
-hermes            # 启动本地 Hermes 对话
-hermes setup      # 交互式配置（改模型 / 密钥 / 网关）
-hermes gateway    # 启动 Telegram 等消息网关
-```
-
----
-
-## 七、后台保活（重要）
-
-安卓会杀后台进程，锁屏后 Agent 可能停。按 [docs/后台保活指南.md](docs/后台保活指南.md) 设置：
-电池优化 → 不优化、开启 Termux 唤醒锁、关闭 Phantom Process Killer（Android 12+ 需 ADB）。
-
----
-
-## 八、目录结构
-
-```
-hermes-agent-mobile-zh/
-├── scripts/
-│   └── install-termux.sh      # 一键安装脚本（原创，中文交互）
-├── docs/
-│   └── 后台保活指南.md         # 安卓 12+ 后台保活（含国产机路径）
-├── config/
-│   ├── config.yaml.example     # 各 provider 配置样例（中文注释）
-│   └── .env.example            # 密钥变量样例
-└── README.md
-```
-
----
-
-## 九、常见问题
+## 七、常见问题
 
 **Q：安装很慢 / pip 报错？**
-A：国内网络建议保持清华 pip 镜像（脚本已默认设置）。若镜像陈旧，可在 Termux 执行 `termux-change-repo` 切换源后重跑安装。
+A：已默认配置国内镜像（CNB 源码镜像 / 清华 pip 源 / 阿里云 apt 源 / 国内 DNS），无需额外设置。
 
 **Q：想换模型或换 Key？**
-A：直接 `hermes setup` 走官方向导，或编辑 `~/.hermes/config.yaml` 与 `~/.hermes/.env`。
+A：App 内「Configure」→ 模型 Tab → 选供应商 + 填 Key → 保存重启网关。支持自定义 OpenAI 兼容端点。
 
-**Q：语音输入（STT）/ 浏览器自动化能不能用？**
-A：原生 Termux 版默认不含本地语音依赖（ARM 上 `ctranslate2` 无官方 wheel）。聊天、Telegram、cron、技能、文件操作、Web 搜索均可用；浏览器自动化需在 proot 环境中额外配置，本极简版暂未包含。
+**Q：和其他手机端方案有什么区别？**
+A：本 App 自带完整 proot + Ubuntu 运行环境，Hermes 本体在手机本地跑，不是"手机只当遥控器"的伪方案。
 
 **Q：iOS 能用吗？**
 A：本仓库聚焦安卓。iOS 因沙盒限制无法本地驻留 Hermes 进程，暂不提供支持。
 
 ---
 
+## 八、相关仓库
+
+| 仓库 | 说明 |
+|------|------|
+| [`const1981/hermes-agent-mobile-zh`](https://github.com/const1981/hermes-agent-mobile-zh) | **本仓库** — Hermes 遥控器（维护态，v0.3.x 序列） |
+| [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) | Hermes Agent 引擎（上游） |
+| [`Binair-Dev/HermesAgentMobile`](https://github.com/Binair-Dev/HermesAgentMobile) | 原上游 Flutter 工程（MIT，已 Fork） |
+
+---
+
 ## 许可证
 
-MIT。本仓库为原创脚本与文档；底层 `hermes-agent` 引擎版权归其上游作者所有。
+版权所有 (C) 2026 李臣 (Li Chen)
+
+本程序是自由软件：你可以根据自由软件基金会发布的 **GNU Affero 通用公共许可证（AGPL-3.0）** 的条款 —— 无论是许可证的第 3 版还是（由你选择的）任何后续版本 —— 重新分发和/或修改它。
+
+本程序的发布是希望它能起到作用，但**没有任何担保**；甚至没有隐含的适销性或特定用途适用性的担保。详情请参见 GNU Affero 通用公共许可证。
+
+你应该已经收到了本程序附带的 GNU Affero 通用公共许可证副本。如果没有，请访问 <https://www.gnu.org/licenses/>。
+
+> **注意：** 本仓库所含的 Flutter/Dart/Kotlin 源代码及文档（"本程序"）是在 AGPL-3.0 下发布的。底层 `hermes-agent` 引擎（`NousResearch/hermes-agent`）为上游项目，采用 Apache 2.0 许可证；原上游 Flutter 工程（`Binair-Dev/HermesAgentMobile`）采用 MIT 许可证，其版权归原始作者所有。

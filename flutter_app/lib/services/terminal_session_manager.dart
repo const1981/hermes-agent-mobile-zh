@@ -20,7 +20,9 @@ class TerminalSessionManager {
 
   Pty? _pty;
   bool _starting = false;
-  final _ready = Completer<Pty>();
+  // 用 var 而非 final：会话进程退出后必须换成全新的 Completer，
+  // 否则下次 acquire() 会拿到已完成的旧 future，终端永久坏死。
+  var _ready = Completer<Pty>();
 
   /// 已写入终端的回调（供 UI 把输出渲染出来）
   void Function(Uint8List)? onOutput;
@@ -31,9 +33,17 @@ class TerminalSessionManager {
   Pty? get pty => _pty;
 
   /// 获取（或启动）终端会话。并发调用也只启动一次。
+  ///
+  /// 关键修复：会话进程退出后（用户在 hermes 里 Ctrl-D 退出、或进程崩溃），
+  /// 必须重置 `_ready` 以便下次调用能重新拉起新会话，否则会一直返回
+  /// 已完成的旧 future（或已报错），导致终端「假死」——再进终端永远报错，
+  /// 只能杀掉 App 重开（#终端退出后坏死）。
   Future<Pty> acquire() async {
     if (_pty != null) return _pty!;
-    if (_ready.isCompleted) return _ready.future;
+    // 上一次会话已结束（_ready 已完成但 _pty 已清空）→ 开新会话。
+    if (_ready.isCompleted) {
+      _ready = Completer<Pty>();
+    }
     if (_starting) return _ready.future;
     _starting = true;
     try {
@@ -81,8 +91,9 @@ class TerminalSessionManager {
       onExit?.call(code);
       _pty = null;
       _starting = false;
-      // 重置 ready，便于下次重新拉起
-      if (!_ready.isCompleted) _ready.completeError('exited');
+      // 重置 ready 为全新 Completer，使下次 acquire() 能重新拉起会话，
+      // 而不是拿到已完成的旧 future（那样会让终端在第一次会话结束后永久坏死）。
+      _ready = Completer<Pty>();
     });
 
     _ready.complete(_pty!);

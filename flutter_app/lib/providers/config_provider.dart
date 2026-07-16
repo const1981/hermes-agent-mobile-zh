@@ -105,6 +105,77 @@ class ConfigProvider extends ChangeNotifier {
     return map;
   }
 
+  /// 解析 config.yaml 的 model: 块，返回 {provider, default, base_url, api_key(去 ${})}
+  static Map<String, String>? _parseModelBlock(String yaml) {
+    final lines = yaml.split('\n');
+    final map = <String, String>{};
+    var inModel = false;
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed == 'model:') {
+        inModel = true;
+        continue;
+      }
+      if (inModel) {
+        // 遇到不缩进的同级/高级键 → model 块结束
+        if (trimmed.isNotEmpty && !line.startsWith(' ') && !line.startsWith('\t')) {
+          break;
+        }
+        final idx = trimmed.indexOf(':');
+        if (idx < 0) continue;
+        final k = trimmed.substring(0, idx).trim();
+        var v = trimmed.substring(idx + 1).trim();
+        // 去掉 YAML 双引号
+        if (v.startsWith('"') && v.endsWith('"')) {
+          v = v.substring(1, v.length - 1);
+        }
+        if (k.isNotEmpty) map[k] = v;
+      }
+    }
+    return inModel ? map : null;
+  }
+
+  /// 从 config.yaml 还原模型供应商状态（provider/baseUrl/model）。
+  ///
+  /// 必须和 loadEnv() 一起在进配置页时调用：否则重开配置页下拉仍是默认的
+  /// deepseek，用户若在「对接(飞书)」页点「保存并重启网关」（共享写盘路径），
+  /// 会把已配好的供应商（尤其 MiMo）覆盖成 deepseek、甚至把 XIAOMI_API_KEY
+  /// 写成 HERMES_API_KEY → 配置损坏、网关无法鉴权。这是「飞书/模型配置文件冲突」的根因。
+  Future<void> loadModelConfig() async {
+    try {
+      final content = await NativeBridge.readRootfsFile('root/.hermes/config.yaml');
+      if (content == null || content.isEmpty) return;
+      final model = _parseModelBlock(content);
+      if (model == null) return;
+      final provider = model['provider'];
+      final defaultModel = model['default'] ?? '';
+      final baseUrl = model['base_url'] ?? '';
+      if (provider == 'custom') {
+        _useCustomProvider = true;
+        _baseUrl = baseUrl;
+        _model = defaultModel;
+      } else if (provider != null) {
+        final tpl = kProviderTemplates
+            .where((t) => t.hermesProvider == provider || t.id == provider)
+            .firstOrNull;
+        if (tpl != null) {
+          _providerId = tpl.id;
+          _useCustomProvider = false;
+          _baseUrl = baseUrl.isNotEmpty ? baseUrl : tpl.baseUrl;
+          _model = defaultModel.isNotEmpty ? defaultModel : tpl.defaultModel;
+        } else {
+          // 未知 provider：退回自定义，至少保住 base_url/model
+          _useCustomProvider = true;
+          _baseUrl = baseUrl;
+          _model = defaultModel;
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // 读不到就保留默认，不阻塞 UI
+    }
+  }
+
   // ── Getters ───────────────────────────────
   String get providerId => _providerId;
   String get apiKey => _apiKey;

@@ -158,7 +158,7 @@ final List<ChannelField> dingtalkFields = [
 ];
 
 // 注：个人微信需扫码登录（Hermes 后端交互式 `hermes gateway setup` 流程），
-// 本 App 无法在表单里配置，已移除微信渠道。扫码对接归 sutaagent 新版实现。
+// 本 App 无法在表单里配置，已移除微信渠道。
 
 /// 「保存并重启网关」：写 config.yaml + 增量合并 .env，然后重启网关让 Hermes 重新加载。
 /// 对标 1Panel 的 Save and Restart Gateway。

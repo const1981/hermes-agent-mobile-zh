@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.25';
+  static const String version = '0.3.26';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
@@ -11,7 +11,7 @@ class AppConstants {
   static const String authorEmail = 'web@2st.cc';
   static const String githubUrl = 'https://github.com/const1981/hermes-agent-mobile-zh';
   static const String githubRepo = 'const1981/hermes-agent-mobile-zh';
-  static const String license = 'MIT';
+  static const String license = 'AGPL-3.0';
 
   static const String githubApiLatestRelease =
       'https://api.github.com/repos/const1981/hermes-agent-mobile-zh/releases/latest';

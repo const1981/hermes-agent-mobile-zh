@@ -25,7 +25,12 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
     super.initState();
     // 进入配置页即从 .env 拉取真实已配状态，避免显示空白
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<ConfigProvider>().loadEnv();
+      if (!mounted) return;
+      final cfg = context.read<ConfigProvider>();
+      // 同时还原 .env（密钥/渠道）与 config.yaml（供应商）：否则重开配置页
+      // 下拉仍是默认 deepseek，点保存会把已配好的供应商覆盖损坏。
+      cfg.loadEnv();
+      cfg.loadModelConfig();
     });
   }
 
@@ -335,7 +340,7 @@ class _SkillPanel extends StatelessWidget {
 }
 
 /// 安装技能：粘贴技能地址（URL 或本地路径）一键安装。
-/// 注：搜索+一键安装的市场是 AgentSuta 新版（未来可能收费）的功能，
+/// 注：搜索+一键安装的技能市场为其他独立产品能力（未来可能收费），
 /// 这里老版本只提供手动安装入口，保持免费。
 class _SkillInstaller extends StatefulWidget {
   const _SkillInstaller();

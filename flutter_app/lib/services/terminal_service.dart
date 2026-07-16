@@ -54,6 +54,7 @@ class TerminalService {
     } catch (_) {}
 
     final storageGranted = await NativeBridge.hasStoragePermission();
+    final arch = await NativeBridge.getArch();
 
     return {
       'executable': prootPath,
@@ -64,6 +65,7 @@ class TerminalService {
       'libDir': libDir,
       'nativeLibDir': nativeLibDir,
       'storageGranted': storageGranted.toString(),
+      'arch': arch,
       // Host-side proot env — ONLY proot-specific vars.
       // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
       // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
@@ -83,12 +85,10 @@ class TerminalService {
     final sysFakes = '${config['configDir']}/sys_fakes';
     final rootfsDir = config['rootfsDir']!;
 
-    // Detect architecture for uname struct
-    // flutter_pty runs on the same device, so we can use Dart's Platform
-    String machine = 'aarch64'; // default
-    try {
-      // Will be set by the caller if needed; for now default arm64
-    } catch (_) {}
+    // 真实设备架构（来自 Kotlin ArchUtils，匹配 proot-distro command_login）。
+    // 不能硬编码 aarch64：x86 模拟器上会向 proot 报告错误的 uname -m，
+    // 导致 proot/程序行为异常。arm64 真机下取值与原来一致，零风险。
+    final machine = config['arch'] ?? 'aarch64';
 
     // Full uname struct matching proot-distro command_login
     final kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
