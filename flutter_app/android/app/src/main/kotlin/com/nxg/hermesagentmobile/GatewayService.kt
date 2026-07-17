@@ -23,6 +23,8 @@ class GatewayService : Service() {
     companion object {
         const val CHANNEL_ID = "hermes_gateway"
         const val NOTIFICATION_ID = 1
+        // proot 内 DNS：统一国内公共 DNS（P1-③ 收敛，Dart 侧 AppConstants.prootResolv 同源）
+        const val PROOT_RESOLV = "nameserver 119.29.11.29\nnameserver 223.5.5.5\n"
         var isRunning = false
             private set
         var logSink: EventChannel.EventSink? = null
@@ -159,9 +161,11 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
             // This covers slow devices where dir setup takes a long time.
             val thread = inst.gatewayThread
             if (thread != null && thread.isAlive) return true
-            // Fallback: within startup window (120s)
-            val elapsed = System.currentTimeMillis() - inst.startTime
-            return elapsed < 120_000
+            // 无进程引用也无存活线程：无法确认网关存活，返回 false。
+            // 旧逻辑用 120s 启动宽限盲目返回 true，会导致进程已死却误报"运行中"，
+            // UI 卡在 running 假象、实际对话连不上。Dart 侧 _checkHealth 已用
+            // 120s 宽限负责"启动中"显示，这里不再兜底（P1-⑤）。
+            return false
         }
 
         fun start(context: Context) {
@@ -181,8 +185,6 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
 
     private var gatewayProcess: Process? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var restartCount = 0
-    private val maxRestarts = 5
     private var startTime: Long = 0
     private var processStartTime: Long = 0
     private var uptimeThread: Thread? = null
@@ -292,7 +294,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
                 }
 
                 // Last-resort: verify resolv.conf exists, create inline if not
-                val resolvContent = "nameserver 119.29.11.29\nnameserver 223.5.5.5\n"
+                val resolvContent = PROOT_RESOLV
                 try {
                     val resolvFile = File(filesDir, "config/resolv.conf")
                     if (!resolvFile.exists() || resolvFile.length() == 0L) {
@@ -396,14 +398,13 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
 
                 // Read stderr — log all lines on first attempt for debugging visibility
                 val stderrReader = BufferedReader(InputStreamReader(proc.errorStream))
-                val currentRestartCount = restartCount
                 Thread {
                     try {
                         var line: String?
                         while (stderrReader.readLine().also { line = it } != null) {
                             val l = line ?: continue
-                            if (currentRestartCount == 0 ||
-                                (!l.contains("proot warning") && !l.contains("can't sanitize"))) {
+                        // 网关不自动重启（by design），stderr 直接全量记录（去掉 restart 噪声过滤）
+                        if (!l.contains("proot warning") && !l.contains("can't sanitize")) {
                                 emitLog("[ERR] $l")
                             }
                         }
@@ -419,7 +420,6 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
                 // 进程退出（无论是否崩溃）一律标记为停止，等待用户再次点「启动网关」。
                 if (stopping) return@Thread
 
-                restartCount = 0
                 isRunning = false
                 emitLog("[INFO] Gateway stopped (no auto-restart by design). Tap 启动网关 to start again.")
                 updateNotification("网关已停止（不自动重启）")
@@ -445,7 +445,6 @@ os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
         val procToStop: Process?
         synchronized(lock) {
             stopping = true
-            restartCount = maxRestarts
             uptimeThread?.interrupt()
             uptimeThread = null
             watchdogThread?.interrupt()

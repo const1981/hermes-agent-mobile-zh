@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../constants.dart';
 import 'native_bridge.dart';
@@ -21,8 +22,16 @@ class TerminalService {
   /// this method, so it's the single place to guarantee the files exist.
   static Future<Map<String, String>> getProotShellConfig() async {
     // Ensure dirs + resolv.conf exist before any proot operation (#40).
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
+    try {
+      await NativeBridge.setupDirs();
+    } catch (e) {
+      debugPrint('[TerminalService] setupDirs failed: $e');
+    }
+    try {
+      await NativeBridge.writeResolv();
+    } catch (e) {
+      debugPrint('[TerminalService] writeResolv failed: $e');
+    }
 
     final filesDir = await _channel.invokeMethod<String>('getFilesDir') ?? '';
     final nativeLibDir = await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
@@ -36,22 +45,26 @@ class TerminalService {
 
     // Direct Dart fallback: create resolv.conf if it still doesn't exist
     // after the native method channel calls (#40).
-    const resolvContent = 'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
+    // 统一引用 AppConstants.prootResolv，避免 DNS 串散落多处（P1-③）。
     try {
       final resolvFile = File('$configDir/resolv.conf');
       if (!resolvFile.existsSync()) {
         Directory(configDir).createSync(recursive: true);
-        resolvFile.writeAsStringSync(resolvContent);
+        resolvFile.writeAsStringSync(AppConstants.prootResolv);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TerminalService] resolv.conf fallback failed: $e');
+    }
     // Also write into rootfs /etc/ so DNS works even if bind-mount fails
     try {
       final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
       if (!rootfsResolv.existsSync()) {
         rootfsResolv.parent.createSync(recursive: true);
-        rootfsResolv.writeAsStringSync(resolvContent);
+        rootfsResolv.writeAsStringSync(AppConstants.prootResolv);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TerminalService] rootfs resolv.conf fallback failed: $e');
+    }
 
     final storageGranted = await NativeBridge.hasStoragePermission();
     final arch = await NativeBridge.getArch();

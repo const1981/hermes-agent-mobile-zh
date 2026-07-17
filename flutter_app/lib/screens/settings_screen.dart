@@ -334,15 +334,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     try {
-      final info = await UpdateService().checkUpdate();
+      final result = await UpdateService().checkUpdate();
       if (!mounted) return;
       Navigator.of(context).pop(); // 关闭"检查中"
-      if (info == null) {
+      if (result.checkFailed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('检查更新失败：${result.errorMessage ?? "未知错误"}')),
+        );
+        return;
+      }
+      if (!result.hasUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已是最新版本')),
         );
         return;
       }
+      final info = result.update!;
       final bool? confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(

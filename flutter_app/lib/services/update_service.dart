@@ -32,6 +32,7 @@ class UpdateService {
   String _normalize(String v) => v.replaceAll(RegExp(r'^[vV]'), '').trim();
 
   /// 单个更新源返回的解析结果。
+  /// 网络/解析异常时抛出 [UpdateFetchException]（不再静默吞掉，让上层区分"检查失败"）。
   Future<UpdateInfo?> _fetchFromSource(String sourceUrl) async {
     try {
       // 七牛 CDN(m.ebmma.com) 会缓存 version.json，导致拿不到最新版、误显"已是最新"。
@@ -70,24 +71,66 @@ class UpdateService {
         notes: data['notes']?.toString() ?? '',
         source: sourceUrl,
       );
-    } catch (_) {
-      return null;
+    } on DioException catch (e) {
+      throw UpdateFetchException(_describeDioError(e));
+    } catch (e) {
+      // 兜底：version.json 结构异常等非网络问题
+      throw UpdateFetchException('解析更新信息失败：$e');
     }
   }
 
-  /// 依次尝试所有更新源，返回第一个能拿到且版本更新的结果。
+  /// 把 Dio 异常翻译成用户可读、可操作的提示（P0-②）。
+  String _describeDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+        return '连接更新服务器超时，请检查网络后重试';
+      case DioExceptionType.receiveTimeout:
+        return '接收更新信息超时，请稍后重试';
+      case DioExceptionType.connectionError:
+        return '无法连接更新服务器（DNS 解析失败或网络不通）';
+      case DioExceptionType.badCertificate:
+        return '更新服务器证书校验失败（可能被拦截）';
+      case DioExceptionType.badResponse:
+        final code = e.response?.statusCode;
+        return '更新服务器返回异常${code != null ? '($code)' : ''}';
+      case DioExceptionType.cancel:
+        return '已取消检查更新';
+      default:
+        return '检查更新失败：${e.message ?? e}';
+    }
+  }
+
+  /// 依次尝试所有更新源，区分三种结果：
+  /// - 有更新：返回 UpdateCheckResult(update != null)
+  /// - 已是最新：返回 UpdateCheckResult()（update == null 且 checkFailed == false）
+  /// - 检查失败：返回 UpdateCheckResult(checkFailed: true, errorMessage)
   /// v0.3.44 起：优先用七牛中央清单 sources.json 里的 version_json 地址（换源无需重发 App），
   /// 清单不可用时 resolveVersionJsonUrl 自动回退硬编码七牛地址；GitHub 作为最终兜底。
-  Future<UpdateInfo?> checkUpdate() async {
+  Future<UpdateCheckResult> checkUpdate() async {
     final List<String> sources = [await AppConstants.resolveVersionJsonUrl()];
     sources.add(AppConstants.updateSourceGithub);
+    String? lastError;
+    bool anyFailed = false;
     for (final src in sources) {
-      final info = await _fetchFromSource(src);
-      if (info != null && compareVersion(info.version, AppConstants.displayVersion) > 0) {
-        return info;
+      try {
+        final info = await _fetchFromSource(src);
+        if (info != null && compareVersion(info.version, AppConstants.displayVersion) > 0) {
+          return UpdateCheckResult(update: info);
+        }
+      } on UpdateFetchException catch (e) {
+        anyFailed = true;
+        lastError = e.message;
+      } catch (e) {
+        anyFailed = true;
+        lastError = '检查更新失败：$e';
       }
     }
-    return null; // 无更新或所有源失败
+    // 全部源都成功但无新版 → 已是最新；任一源失败 → 检查失败（不再误报"已是最新"）
+    if (anyFailed) {
+      return UpdateCheckResult(checkFailed: true, errorMessage: lastError);
+    }
+    return const UpdateCheckResult();
   }
 
   /// 下载 APK 到应用私有目录（apk_update/），返回本地路径。
@@ -141,4 +184,25 @@ class UpdateInfo {
     required this.notes,
     required this.source,
   });
+}
+
+/// 检查更新结果：区分「有更新 / 已是最新 / 检查失败」三种情况（P0-②）。
+class UpdateCheckResult {
+  /// 非 null 表示发现可更新版本。
+  final UpdateInfo? update;
+  /// true 表示所有更新源都检查失败（网络/解析/DNS），而非"已是最新"。
+  final bool checkFailed;
+  /// checkFailed 时的可读错误，直接展示给用户。
+  final String? errorMessage;
+
+  const UpdateCheckResult({this.update, this.checkFailed = false, this.errorMessage});
+
+  bool get hasUpdate => update != null;
+  bool get upToDate => update == null && !checkFailed;
+}
+
+/// 检查更新过程中抛出的、已翻译为用户可读消息的异常。
+class UpdateFetchException {
+  final String message;
+  UpdateFetchException(this.message);
 }

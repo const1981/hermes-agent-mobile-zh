@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/chat_message.dart';
@@ -123,7 +124,7 @@ class ChatService {
       onCompleted(sawDataLine ? null : rawBuffer);
     } catch (e) {
       // 用户主动取消会触发 client 关闭导致的异常，这里统一交给上层判断
-      onError('网络错误：$e');
+      onError(_describeChatError(e));
     }
   }
 
@@ -140,5 +141,25 @@ class ChatService {
     } catch (_) {
       // 跳过无法解析的心跳/注释行
     }
+  }
+
+  /// 把对话请求异常翻译成用户可读、可操作的提示（P0-②）。
+  /// 连的是本地网关 127.0.0.1:18789（HTTP），常见为连接被拒（网关没起）或连接中断。
+  String _describeChatError(Object e) {
+    if (e is SocketException) {
+      final errno = e.osError?.errorCode;
+      // ECONNREFUSED = 111：网关进程未启动或已退出
+      if (errno == 111) {
+        return '无法连接网关（127.0.0.1:18789 无响应），请先到仪表盘启动网关';
+      }
+      return '与网关的网络连接失败：${e.message}';
+    }
+    if (e is http.ClientException) {
+      return '与网关通信中断：${e.message}';
+    }
+    if (e is FormatException) {
+      return '网关返回的数据无法解析';
+    }
+    return '对话出错：$e';
   }
 }

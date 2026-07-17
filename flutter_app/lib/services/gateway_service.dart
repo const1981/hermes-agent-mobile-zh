@@ -24,26 +24,41 @@ class GatewayService {
     _stateController.add(_state);
   }
 
+  /// 追加一条日志（不改变网关状态），用于把"原本被静默吞掉"的异常暴露到日志流，
+  /// 方便排查（P0-②）。
+  void _log(String msg) {
+    _updateState(_state.copyWith(logs: [..._state.logs, _ts(msg)]));
+  }
+
   Future<void> init() async {
     final prefs = PreferencesService();
     await prefs.init();
 
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
+    try {
+      await NativeBridge.setupDirs();
+    } catch (e) {
+      _log('[DEBUG] setupDirs 失败（忽略）：$e');
+    }
+    try {
+      await NativeBridge.writeResolv();
+    } catch (e) {
+      _log('[DEBUG] writeResolv 失败（忽略）：$e');
+    }
     try {
       final filesDir = await NativeBridge.getFilesDir();
-      const resolvContent = 'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
       final resolvFile = File('$filesDir/config/resolv.conf');
       if (!resolvFile.existsSync()) {
         Directory('$filesDir/config').createSync(recursive: true);
-        resolvFile.writeAsStringSync(resolvContent);
+        resolvFile.writeAsStringSync(AppConstants.prootResolv);
       }
       final rootfsResolv = File('$filesDir/rootfs/debian/etc/resolv.conf');
       if (!rootfsResolv.existsSync()) {
         rootfsResolv.parent.createSync(recursive: true);
-        rootfsResolv.writeAsStringSync(resolvContent);
+        rootfsResolv.writeAsStringSync(AppConstants.prootResolv);
       }
-    } catch (_) {}
+    } catch (e) {
+      _log('[DEBUG] 写入 resolv.conf 失败（忽略）：$e');
+    }
 
     final alreadyRunning = await NativeBridge.isGatewayRunning();
     if (alreadyRunning) {
@@ -92,7 +107,9 @@ class GatewayService {
           return true;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      _log('[DEBUG] 读取 .env 失败（视为未配置）：$e');
+    }
     return false;
   }
 
@@ -118,22 +135,31 @@ class GatewayService {
     ));
 
     try {
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      try {
+        await NativeBridge.setupDirs();
+      } catch (e) {
+        _log('[DEBUG] setupDirs 失败（忽略）：$e');
+      }
+      try {
+        await NativeBridge.writeResolv();
+      } catch (e) {
+        _log('[DEBUG] writeResolv 失败（忽略）：$e');
+      }
       try {
         final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 119.29.11.29\nnameserver 223.5.5.5\n';
         final resolvFile = File('$filesDir/config/resolv.conf');
         if (!resolvFile.existsSync()) {
           Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
+          resolvFile.writeAsStringSync(AppConstants.prootResolv);
         }
         final rootfsResolv = File('$filesDir/rootfs/debian/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
+          rootfsResolv.writeAsStringSync(AppConstants.prootResolv);
         }
-      } catch (_) {}
+      } catch (e) {
+        _log('[DEBUG] 写入 resolv.conf 失败（忽略）：$e');
+      }
 
       _startingAt = DateTime.now();
       await NativeBridge.startGateway();
@@ -213,7 +239,8 @@ class GatewayService {
         ));
         _cancelAllTimers();
       }
-    } catch (_) {
+    } catch (e) {
+      _log('[DEBUG] 健康检查异常：$e');
       final isRunning = await NativeBridge.isGatewayRunning();
       if (!isRunning && _state.status != GatewayStatus.stopped) {
         if (_startingAt != null &&
