@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.39';
+  static const String version = '0.3.40';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
@@ -17,11 +17,11 @@ class AppConstants {
       'https://api.github.com/repos/const1981/hermes-agent-mobile-zh/releases/latest';
 
   /// 应用内更新（v0.3.39+）。更新源优先级：
-  /// 1) 七牛云 Kodo（国内快，公开读）—— 需臣哥提供正确 bucket/域名后启用
+  /// 1) 七牛云 Kodo（国内快，公开读）
   /// 2) GitHub Releases（兜底，国内偶尔慢）
-  /// version.json 格式：{"version":"0.3.39","apk":"https://.../hermes-agent-mobile-v0.3.39.apk","notes":"..."}
+  /// version.json 格式：{"version":"0.3.40","apk":"https://.../hermes-agent-mobile-v0.3.40.apk","notes":"..."}
   static const String updateSourceQiniu =
-      'https://hermes-apk.your-qiniu-domain.com/version.json'; // TODO: 臣哥核七牛 key 后填真实域名
+      'http://tiano67r8.hd-bkt.clouddn.com/version.json';
   static const String updateSourceGithub =
       'https://api.github.com/repos/const1981/hermes-agent-mobile-zh/releases/latest';
   /// 优先用七牛；七牛 URL 仍是占位 TODO 时自动降级到 GitHub。
@@ -31,8 +31,7 @@ class AppConstants {
     list.add(updateSourceGithub);
     return list;
   }
-  static const String qiniuApkBaseUrl =
-      'https://hermes-apk.your-qiniu-domain.com'; // TODO: 同上，APK 直链前缀
+  static const String qiniuApkBaseUrl = 'http://tiano67r8.hd-bkt.clouddn.com';
 
   static const String orgName = 'Hermes Android App';
   static const String orgEmail = 'const1981@users.noreply.github.com';
