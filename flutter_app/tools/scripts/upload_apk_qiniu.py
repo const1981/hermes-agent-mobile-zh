@@ -39,7 +39,7 @@ KEY_PREFIX = ENV.get("QINIU_KEY_PREFIX", "hermesmb/")
 DOMAIN = ENV.get("QINIU_DOMAIN", "m.ebmma.com")
 
 try:
-    from qiniu import Auth, put_file
+    from qiniu import Auth, put_file, put_data
 except ImportError:
     sys.exit("请先安装 qiniu SDK: pip install qiniu")
 
@@ -73,8 +73,9 @@ def main():
     vkey = f"{KEY_PREFIX}version.json"
     print(f"[2/2] 上传 version.json -> {BUCKET}/{vkey}")
     token2 = q.upload_token(BUCKET, vkey, 3600)
-    ret2, info2 = put_file(token2, vkey, None,
-                            data=version_json)
+    # 注意：新版 qiniu SDK 的 put_file 不再接受 data= 参数，
+    # 内存内容（version.json）必须用 put_data 上传。
+    ret2, info2 = put_data(token2, vkey, version_json)
     if info2.status_code != 200:
         sys.exit(f"version.json 上传失败: {info2.status_code} {ret2}")
     print("     OK:", ret2)
