@@ -101,8 +101,14 @@ class BootstrapManager(
         try {
             FileInputStream(tarPath).use { fis ->
                 BufferedInputStream(fis, 256 * 1024).use { bis ->
-                    GZIPInputStream(bis).use { gis ->
-                        TarArchiveInputStream(gis).use { tis ->
+                    val compressedIn: InputStream = when {
+                        tarPath.endsWith(".xz") -> XZCompressorInputStream(bis)
+                        tarPath.endsWith(".gz") || tarPath.endsWith(".tgz") -> GZIPInputStream(bis)
+                        tarPath.endsWith(".zst") -> ZstdCompressorInputStream(bis)
+                        else -> bis
+                    }
+                    compressedIn.use { cin ->
+                        TarArchiveInputStream(cin).use { tis ->
                             var entry: TarArchiveEntry? = tis.nextEntry
                             while (entry != null) {
                                 entryCount++
