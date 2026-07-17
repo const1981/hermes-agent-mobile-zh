@@ -23,8 +23,8 @@ class BootstrapService {
   /// 检查 rootfs 是否已完整解压到 App 私有目录（无需进 proot）。
   Future<bool> _isRootfsExtracted(String filesDir) async {
     try {
-      return Directory('$filesDir/rootfs/ubuntu/bin').existsSync() &&
-          File('$filesDir/rootfs/ubuntu/bin/bash').existsSync();
+      return Directory('$filesDir/rootfs/debian/bin').existsSync() &&
+          File('$filesDir/rootfs/debian/bin/bash').existsSync();
     } catch (_) {
       return false;
     }
@@ -160,22 +160,22 @@ class BootstrapService {
           Directory(configDir).createSync(recursive: true);
           resolvFile.writeAsStringSync(resolvContent);
         }
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/debian/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
+      final tarPath = '$filesDir/tmp/debian-rootfs.tar.xz';
 
       // ===== 断点续传：rootfs 已解压则跳过下载 + 解压 =====
       final rootfsReady = await _isRootfsExtracted(filesDir);
       if (!rootfsReady) {
-        _updateSetupNotification('正在下载 Ubuntu Rootfs...', progress: 5);
+        _updateSetupNotification('正在下载 Debian Rootfs...', progress: 5);
         onProgress(const SetupState(
           step: SetupStep.downloadingRootfs,
           progress: 0.0,
-          message: '正在下载 Ubuntu Rootfs...',
+          message: '正在下载 Debian Rootfs...',
         ));
         await _dio.download(
           rootfsUrl,
@@ -273,11 +273,11 @@ class BootstrapService {
           progress: 0.1,
           message: '正在更新软件源列表...',
         ));
-        // 将 apt 系统源替换为阿里云国内源（Ubuntu 官方源国内极慢/超时，
-        // 是手机第四步卡顿的常见原因）。arm64 用 ubuntu-ports 仓库。
+        // 将 apt 系统源替换为清华国内 Debian 镜像（deb.debian.org 国内极慢/超时，
+        // 是手机初始化卡顿的常见原因）。
         await prootRun(
-          'sed -i "s|archive.ubuntu.com|${AppConstants.aptMirrorHost}|g; '
-          's|security.ubuntu.com|${AppConstants.aptMirrorHost}|g" '
+          'sed -i "s|deb.debian.org|${AppConstants.aptMirrorHost}|g; '
+          's|security.debian.org|${AppConstants.aptMirrorHost}|g" '
           '/etc/apt/sources.list '
           '\$(ls /etc/apt/sources.list.d/*.list 2>/dev/null) 2>/dev/null; '
           'echo apt_mirror_switched',

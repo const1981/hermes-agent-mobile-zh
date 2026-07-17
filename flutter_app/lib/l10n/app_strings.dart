@@ -86,7 +86,7 @@ class AppStrings {
   String get exportSnapshot         => isZh ? '导出快照'              : 'Export Snapshot';
   String get exportSnapshotDesc     => isZh ? '备份配置到 Downloads'   : 'Backup config to Downloads';
   String get backupData             => isZh ? '备份数据包'            : 'Backup Data Package';
-  String get backupDataDesc         => isZh ? '备份整套已安装环境(系统镜像: Ubuntu/Python/Hermes/全部依赖)到 Download，用于一键还原'
+  String get backupDataDesc         => isZh ? '备份整套已安装环境(系统镜像: Debian/Python/Hermes/全部依赖)到 Download，用于一键还原'
                                          : 'Backup the full installed environment (system image) to Download for one-click restore';
   String get backupStarted          => isZh ? '正在打包系统镜像，文件较大请耐心等待…' : 'Packing system image, large file, please wait…';
   String backupSaved(String path)   => isZh ? '数据包已备份到：$path' : 'Data package backed up to: $path';
@@ -145,8 +145,8 @@ class AppStrings {
   String get setupHermesAgent       => isZh ? '安装赫尔墨斯'         : 'Setup Hermes Agent';
   String get setupProgressDesc      => isZh ? '首次安装约需 10-30 分钟，请保持网络畅通...'
                                          : 'First setup takes ~10-30 min. Keep network on.';
-  String get setupInitialDesc       => isZh ? '将下载 Ubuntu、Python 和 Hermes Agent 到独立环境中'
-                                         : 'This will download Ubuntu, Python, and Hermes Agent into a self-contained environment.';
+  String get setupInitialDesc       => isZh ? '将下载 Debian、Python 和 Hermes Agent 到独立环境中'
+                                         : 'This will download Debian, Python, and Hermes Agent into a self-contained environment.';
   String get goToDashboard          => isZh ? '前往主界面'           : 'Go to Dashboard';
   String get beginSetup             => isZh ? '开始安装'             : 'Begin Setup';
   String get retrySetup             => isZh ? '重试安装'             : 'Retry Setup';
@@ -154,7 +154,7 @@ class AppStrings {
                                          : 'Requires ~500MB of storage and an internet connection';
   String get unknownError           => isZh ? '未知错误'             : 'Unknown error';
   String get setupComplete          => isZh ? '安装完成！'           : 'Setup complete!';
-  String get downloadUbuntuRootfs   => isZh ? '下载 Ubuntu Rootfs'   : 'Download Ubuntu rootfs';
+  String get downloadDebianRootfs   => isZh ? '下载 Debian Rootfs'   : 'Download Debian rootfs';
   String get extractRootfs          => isZh ? '解压 Rootfs'          : 'Extract rootfs';
   String get installPython          => isZh ? '安装 Python'          : 'Install Python';
   String get installHermesAgent     => isZh ? '安装 Hermes Agent'    : 'Install Hermes Agent';
@@ -165,7 +165,7 @@ class AppStrings {
   String get bootstrapRequired      => isZh ? '需要安装'             : 'Setup required';
   String checkFailed(dynamic e)     => isZh ? '检查失败：$e'         : 'Failed to check status: $e';
   String get settingUpDirs          => isZh ? '正在创建目录...'      : 'Setting up directories...';
-  String get downloadingRootfs      => isZh ? '正在下载 Ubuntu Rootfs...': 'Downloading Ubuntu rootfs...';
+  String get downloadingRootfs      => isZh ? '正在下载 Debian Rootfs...': 'Downloading Debian rootfs...';
   String downloadingRootfsDetail(int mb, int totalMb) => isZh ? '下载中：$mb MB / $totalMb MB' : 'Downloading: $mb MB / $totalMb MB';
   String get extractingRootfsMsg     => isZh ? '正在解压 Rootfs（需要较长时间）...': 'Extracting rootfs (this takes a while)...';
   String get rootfsExtracted        => isZh ? 'Rootfs 解压完成'       : 'Rootfs extracted';
@@ -216,7 +216,7 @@ class AppStrings {
 
   // ── Step Labels (setup_state) ────────────────
   String get stepCheckingStatus     => isZh ? '检查状态中...'        : 'Checking status...';
-  String get stepDownloadingRootfs  => isZh ? '下载 Ubuntu Rootfs'   : 'Downloading Ubuntu rootfs';
+  String get stepDownloadingRootfs  => isZh ? '下载 Debian Rootfs'   : 'Downloading Debian rootfs';
   String get stepExtractingRootfs   => isZh ? '解压 Rootfs'          : 'Extracting rootfs';
   String get stepInstallingPython   => isZh ? '安装 Python'          : 'Installing Python';
   String get stepInstallingHermes   => isZh ? '安装 Hermes Agent'    : 'Installing Hermes Agent';

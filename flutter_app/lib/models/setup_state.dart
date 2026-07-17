@@ -44,7 +44,7 @@ class SetupState {
       case SetupStep.checkingStatus:
         return '检查状态中...';
       case SetupStep.downloadingRootfs:
-        return '下载 Ubuntu Rootfs';
+        return '下载 Debian Rootfs';
       case SetupStep.extractingRootfs:
         return '解压 Rootfs';
       case SetupStep.installingPython:

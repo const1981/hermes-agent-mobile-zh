@@ -16,7 +16,7 @@ class ProcessManager(
     private val filesDir: String,
     private val nativeLibDir: String
 ) {
-    private val rootfsDir get() = "$filesDir/rootfs/ubuntu"
+    private val rootfsDir get() = "$filesDir/rootfs/debian"
     private val tmpDir get() = "$filesDir/tmp"
     private val homeDir get() = "$filesDir/home"
     private val configDir get() = "$filesDir/config"

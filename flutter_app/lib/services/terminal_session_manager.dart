@@ -67,7 +67,7 @@ class TerminalSessionManager {
         Directory('$filesDir/config').createSync(recursive: true);
         resolvFile.writeAsStringSync(resolvContent);
       }
-      final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+      final rootfsResolv = File('$filesDir/rootfs/debian/etc/resolv.conf');
       if (!rootfsResolv.existsSync()) {
         rootfsResolv.parent.createSync(recursive: true);
         rootfsResolv.writeAsStringSync(resolvContent);

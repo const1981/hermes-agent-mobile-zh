@@ -420,13 +420,13 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "packEnvZip" -> {
-                    // 把整套已装环境(rootfs/ubuntu) 打成固定路径 zip，供 App 内局域网下载服务导出
+                    // 把整套已装环境(rootfs/debian) 打成固定路径 zip，供 App 内局域网下载服务导出
                     Thread {
                         try {
-                            val envDir = File(filesDir, "rootfs/ubuntu")
+                            val envDir = File(filesDir, "rootfs/debian")
                             if (!envDir.exists() || !envDir.isDirectory) {
                                 runOnUiThread {
-                                    result.error("NO_ENV", "未找到已安装环境(rootfs/ubuntu)，请先完成初始化", null)
+                                    result.error("NO_ENV", "未找到已安装环境(rootfs/debian)，请先完成初始化", null)
                                 }
                                 return@Thread
                             }
@@ -662,7 +662,7 @@ class MainActivity : FlutterActivity() {
     private fun cleanGarbage(result: MethodChannel.Result, filesDir: String) {
         Thread {
             try {
-                val rootfs = File(filesDir, "rootfs/ubuntu")
+                val rootfs = File(filesDir, "rootfs/debian")
                 var freed: Long = 0
                 if (rootfs.exists()) {
                     // pip / apt 缓存

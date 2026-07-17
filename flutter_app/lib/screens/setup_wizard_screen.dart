@@ -173,7 +173,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Widget _buildSteps(SetupState state, ThemeData theme) {
     final s = AppStrings.of(context);
     final steps = [
-      (1, s.downloadUbuntuRootfs, SetupStep.downloadingRootfs),
+      (1, s.downloadDebianRootfs, SetupStep.downloadingRootfs),
       (2, s.extractRootfs, SetupStep.extractingRootfs),
       (3, s.installPython, SetupStep.installingPython),
       (4, s.installHermesAgent, SetupStep.installingHermesAgent),

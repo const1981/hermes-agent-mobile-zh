@@ -85,7 +85,7 @@ class NativeBridge {
     return r ?? 0;
   }
 
-  /// 把整套已装环境(rootfs/ubuntu) 打成 zip 到固定路径 filesDir/hermes_env.zip，返回绝对路径。
+  /// 把整套已装环境(rootfs/debian) 打成 zip 到固定路径 filesDir/hermes_env.zip，返回绝对路径。
   /// 供系统镜像页「打包」+ 局域网下载导出（不依赖外部存储权限）。
   static Future<String> packEnvZip() async {
     final r = await _channel.invokeMethod<String>('packEnvZip');

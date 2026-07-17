@@ -45,7 +45,7 @@ a{display:inline-block;margin-top:18px;padding:13px 22px;background:#1976d2;colo
 .meta{color:#888;font-size:13px;margin-top:24px;word-break:break-all;background:#f5f5f5;padding:10px 12px;border-radius:8px}
 </style></head><body>
 <h1>📦 Hermes 环境镜像导出</h1>
-<p>这是你手机里装好的整套环境（Ubuntu + Python + Hermes + 全部依赖）打包成的 zip。</p>
+<p>这是你手机里装好的整套环境（Debian + Python + Hermes + 全部依赖）打包成的 zip。</p>
 <a href="/download">⬇️ 点击下载 hermes_env.zip</a>
 <div class="meta">源文件：${filePath}</div>
 <div class="meta">手机 IP：$ip &nbsp; 端口：$port</div>

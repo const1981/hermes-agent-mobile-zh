@@ -232,7 +232,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
                 }
                 // Also write into rootfs /etc/ so DNS works even if bind-mount fails
                 try {
-                    val rootfsResolv = File(filesDir, "rootfs/ubuntu/etc/resolv.conf")
+                    val rootfsResolv = File(filesDir, "rootfs/debian/etc/resolv.conf")
                     if (!rootfsResolv.exists() || rootfsResolv.length() == 0L) {
                         rootfsResolv.parentFile?.mkdirs()
                         rootfsResolv.writeText(resolvContent)
@@ -277,7 +277,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
                 // 进程，中低端机/异常 rootfs 下会卡 15 分钟（默认 900s 超时），
                 // 表现为「网关一直 starting 起不来」。改为只检查文件存在，
                 // 真正的运行校验交给下方 launchCmd 本身（失败看 stderr 日志即可）。
-                val hermesBin = File("$filesDir/rootfs/ubuntu/root/hermes-agent/venv/bin/hermes")
+                val hermesBin = File("$filesDir/rootfs/debian/root/hermes-agent/venv/bin/hermes")
                 if (!hermesBin.exists()) {
                     emitLog("[ERROR] Hermes 依赖未安装完整（venv/bin/hermes 不存在）。请前往「设置 → 重新初始化」修复后，再启动网关。")
                     updateNotification("Hermes 依赖缺失，请重新初始化")
@@ -362,7 +362,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
 
     private fun ensureLaunchScript(filesDir: String) {
         try {
-            val script = File("$filesDir/rootfs/ubuntu/root/.hermes/launch_gateway.py")
+            val script = File("$filesDir/rootfs/debian/root/.hermes/launch_gateway.py")
             script.parentFile?.mkdirs()
             script.writeText(LAUNCH_SCRIPT)
         } catch (_: Exception) {}
@@ -390,7 +390,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
             // 1) Read the inner Python gateway PID and kill it directly.
             // Under Android proot, the child PID is visible from the host.
             val pythonPid = try {
-                val pidFile = File("$filesDir/rootfs/ubuntu/root/.hermes/gateway.pid")
+                val pidFile = File("$filesDir/rootfs/debian/root/.hermes/gateway.pid")
                 if (pidFile.exists()) pidFile.readText().trim() else null
             } catch (_: Exception) {
                 null

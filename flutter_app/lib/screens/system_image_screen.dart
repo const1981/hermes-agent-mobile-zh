@@ -76,7 +76,7 @@ class _SystemImageScreenState extends State<SystemImageScreen> {
     try {
       filesDir = await NativeBridge.getFilesDir();
     } catch (_) {}
-    final env = filesDir.isNotEmpty ? '$filesDir/rootfs/ubuntu' : '(未知)';
+    final env = filesDir.isNotEmpty ? '$filesDir/rootfs/debian' : '(未知)';
     if (mounted) setState(() => _envPath = env);
 
     // 顶层目录浏览（让你「看到」文件夹）

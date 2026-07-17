@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.41';
+  static const String version = '0.3.42';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
@@ -41,11 +41,16 @@ class AppConstants {
   static const int gatewayPort = 18789;
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
-  static const String ubuntuRootfsUrl =
-      'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.3-base-';
-  static const String rootfsArm64 = '${ubuntuRootfsUrl}arm64.tar.gz';
-  static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
-  static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';
+  /// v0.3.42 起改用 Debian（proot-distro 官方 bookworm rootfs）。
+  /// 来源：termux/proot-distro releases（.tar.xz，已验证可经 XZCompressorInputStream 解压）。
+  /// 比 Debian base 更精简（apt 源更干净、包更少），国内下载走代理/镜像。
+  static const String debianRootfsBaseUrl =
+      'https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-';
+  static const String rootfsArm64 = '${debianRootfsBaseUrl}aarch64-pd-v4.17.3.tar.xz';
+  static const String rootfsArmhf = '${debianRootfsBaseUrl}arm-pd-v4.17.3.tar.xz';
+  static const String rootfsAmd64 = '${debianRootfsBaseUrl}x86_64-pd-v4.17.3.tar.xz';
+  /// 解压后 rootfs 在 App 私有目录下的子目录名（原 ubuntu，现 debian）。
+  static const String rootfsSubdir = 'debian';
 
   /// Hermes Agent 源码镜像（全部走国内源，弃用 ghproxy / 直连 GitHub）。
   /// 首选用 CNB.cool 腾讯云镜像（腾讯云 CDN，国内几十 MB/s，最稳最快）；
@@ -63,10 +68,10 @@ class AppConstants {
   static const String pipIndexUrl = 'https://pypi.tuna.tsinghua.edu.cn/simple';
   static const String pipFallbackUrl = 'https://repo.huaweicloud.com/repository/pypi/simple';
 
-  /// apt 系统源替换为阿里云国内源（Ubuntu 官方源 archive.ubuntu.com 在国内极慢/超时，
-  /// 这是手机上第四步卡顿的常见元凶）。安装前注入到 proot 的 sources.list。
-  static const String aptMirrorHost = 'mirrors.aliyun.com';
-  static const String aptMirrorUrl = 'http://mirrors.aliyun.com/ubuntu-ports';
+  /// apt 系统源替换为清华国内 Debian 镜像（deb.debian.org 在国内极慢/超时，
+  /// 这是手机初始化卡顿的常见元凶）。安装前注入到 proot 的 sources.list。
+  static const String aptMirrorHost = 'mirrors.tuna.tsinghua.edu.cn';
+  static const String aptMirrorUrl = 'https://mirrors.tuna.tsinghua.edu.cn/debian';
 
   static const int healthCheckIntervalMs = 5000;
   static const int maxAutoRestarts = 5;
