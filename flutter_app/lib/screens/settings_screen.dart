@@ -210,8 +210,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(),
                 _sectionHeader(theme, s.aboutSection),
                 ListTile(
-                  title: Text(s.aboutApp(AppConstants.version).split('\n')[0]),
-                  subtitle: Text(s.aboutApp(AppConstants.version)),
+                  title: Text(s.aboutApp(AppConstants.displayVersion).split('\n')[0]),
+                  subtitle: Text(s.aboutApp(AppConstants.displayVersion)),
                   leading: Icon(Icons.info_outline),
                   isThreeLine: true,
                 ),
@@ -242,7 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
                 Center(
                   child: Text(
-                    '${AppConstants.appName} v${AppConstants.version}',
+                    '${AppConstants.appName} v${AppConstants.displayVersion}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -318,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // 配置备份 = 设置文件：config.yaml + .env（含渠道密钥等）。整文件夹镜像请用「系统镜像」页。
       final hermesEnv = await NativeBridge.readRootfsFile('root/.hermes/.env');
       final snapshot = {
-        'version': AppConstants.version,
+        'version': AppConstants.displayVersion,
         'timestamp': DateTime.now().toIso8601String(),
         'hermesConfig': hermesConfig,
         'hermesEnv': hermesEnv,
@@ -381,7 +381,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(info.notes),
                 ],
                 const SizedBox(height: 8),
-                Text('当前版本：v${AppConstants.version}',
+                Text('当前版本：v${AppConstants.displayVersion}',
                     style: Theme.of(context).textTheme.bodySmall),
               ],
             ),

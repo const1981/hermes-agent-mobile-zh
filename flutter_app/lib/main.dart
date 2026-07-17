@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'app.dart';
+import 'constants.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 读取真实 APK 版本号，避免界面显示与真实包版本脱节（v0.3.48 修复）。
+  await AppConstants.initRealVersion();
   // 任何 widget build 抛异常时显示可见错误文本（红底），而不是静默白屏，
   // 避免再次出现「页面空白但找不到原因」的情况。
   ErrorWidget.builder = (details) {

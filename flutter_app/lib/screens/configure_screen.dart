@@ -514,7 +514,7 @@ class _AboutCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${AppConstants.appName} v${AppConstants.version}',
+            Text('${AppConstants.appName} v${AppConstants.displayVersion}',
                 style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text('© 2026 ${AppConstants.authorName}',

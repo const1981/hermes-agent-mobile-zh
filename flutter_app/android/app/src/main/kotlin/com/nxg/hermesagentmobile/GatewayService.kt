@@ -66,11 +66,51 @@ for p in glob.glob('/proc/[0-9]*/cmdline'):
     except Exception:
         pass
 
-# 3) Change to hermes-agent dir and exec the gateway in place.
+# 3) Build a gateway config that ENABLES the local api_server platform.
+#    The user's config.yaml has no top-level `platforms:` section, so the
+#    gateway starts but binds NO HTTP port (logs "No messaging platforms
+#    enabled") and the App cannot connect (Connection refused on 127.0.0.1:18789).
+#    We merge an api_server block on top of the existing config.yaml (preserving
+#    the model/provider settings) and launch with --config so the port is bound.
+import json
+try:
+    import yaml
+    _have_yaml = True
+except Exception:
+    _have_yaml = False
+
+_cfg = {}
+if _have_yaml:
+    try:
+        with open('/root/.hermes/config.yaml', 'r', encoding='utf-8') as f:
+            _cfg = yaml.safe_load(f) or {}
+    except Exception:
+        _cfg = {}
+if not isinstance(_cfg, dict):
+    _cfg = {}
+
+_platforms = _cfg.get('platforms')
+if not isinstance(_platforms, dict):
+    _platforms = {}
+_platforms['api_server'] = {
+    'enabled': True,
+    'host': '127.0.0.1',
+    'port': 18789,
+}
+_cfg['platforms'] = _platforms
+
+with open('/root/.hermes/mobile_gateway.yaml', 'w', encoding='utf-8') as f:
+    if _have_yaml:
+        yaml.safe_dump(_cfg, f, default_flow_style=False, allow_unicode=True)
+    else:
+        json.dump(_cfg, f)
+
+# 4) Change to hermes-agent dir and exec the gateway with our merged config.
 #    os.execv replaces the current process (no extra shell layer).
 os.chdir('/root/hermes-agent')
 venv_python = '/root/hermes-agent/venv/bin/python'
-os.execv(venv_python, [venv_python, 'gateway/run.py'])
+cfg_path = '/root/.hermes/mobile_gateway.yaml'
+os.execv(venv_python, [venv_python, 'gateway/run.py', '--config', cfg_path])
 """
 
         /** Check if the gateway process is actually alive (not just the flag).

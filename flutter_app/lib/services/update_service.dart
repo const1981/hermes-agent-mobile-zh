@@ -83,7 +83,7 @@ class UpdateService {
     sources.add(AppConstants.updateSourceGithub);
     for (final src in sources) {
       final info = await _fetchFromSource(src);
-      if (info != null && compareVersion(info.version, AppConstants.version) > 0) {
+      if (info != null && compareVersion(info.version, AppConstants.displayVersion) > 0) {
         return info;
       }
     }

@@ -1,8 +1,27 @@
 import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.45';
+  /// 兜底版本号（编译期默认值）。真实版本由 [initRealVersion] 运行时读取 APK
+  /// versionName 填充，UI 一律用 [displayVersion]，杜绝「界面旧版本、实际新包」的
+  /// 双版本源漂移（v0.3.45→3.47 曾因忘了改这道常量而显示成 3.45）。
+  static String version = '0.3.48';
+  static String? _realVersion;
+
+  /// 运行时读取 APK 真实 versionName。必须在 main() 尽早 await 调用。
+  static Future<void> initRealVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _realVersion = info.version;
+    } catch (_) {
+      // 读取失败则用兜底常量
+    }
+  }
+
+  /// UI 显示用的真实版本号（优先 APK versionName，失败回退 [version]）。
+  static String get displayVersion => _realVersion ?? version;
+
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
