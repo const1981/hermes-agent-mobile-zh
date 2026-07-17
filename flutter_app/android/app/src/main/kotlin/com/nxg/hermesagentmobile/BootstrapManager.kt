@@ -86,7 +86,7 @@ class BootstrapManager(
      * to strip that prefix so files land directly under filesDir/rootfs/debian/.
      *
      * Returns the wrapper directory name (without trailing slash), or null if
-     * the archive content starts directly at the rootfs top-level (bin/, etc/,
+     * the archive content starts directly at the rootfs top-level (bin/, etc./,
      * usr/, ...).
      */
     private fun detectTopLevelPrefix(tarPath: String): String? {
@@ -119,9 +119,6 @@ class BootstrapManager(
                             }
                             entry = tis.nextEntry
                         }
-                        // A single top-level prefix that also appears as a directory
-                        // entry indicates a wrapper directory (proot-distro layout).
-                        // Normal rootfs archives expose multiple top-level dirs.
                         if (prefixes.size != 1) return null
                         val prefix = prefixes.first()
                         return if (prefix.isNotEmpty() && prefix in directoryPrefixes) prefix else null
@@ -144,16 +141,16 @@ class BootstrapManager(
         //   Phase 1: Extract directories, regular files, and hard links (as copies).
         //   Phase 2: Create all symlinks (deferred so directory structure exists first).
         // This handles tarball entry ordering issues (e.g., bin/bash before bin→usr/bin).
-        //
-        // Proot-distro rootfs archives wrap the real rootfs in a single top-level
-        // directory (e.g. "debian-bookworm-aarch64/"); detectTopLevelPrefix() strips
-        // that wrapper so content lands directly under rootfsDir.
-        val topLevelPrefix = detectTopLevelPrefix(tarPath)
         val deferredSymlinks = mutableListOf<Pair<String, String>>() // target, path
         var entryCount = 0
         var fileCount = 0
         var symlinkCount = 0
         var extractionError: Exception? = null
+
+        // Proot-distro rootfs archives wrap the real rootfs in a single top-level
+        // directory (e.g. "debian-bookworm-aarch64/"); detectTopLevelPrefix() strips
+        // that wrapper so content lands directly under rootfsDir.
+        val topLevelPrefix = detectTopLevelPrefix(tarPath)
 
         try {
             FileInputStream(tarPath).use { fis ->
@@ -166,86 +163,85 @@ class BootstrapManager(
                     }
                     compressedIn.use { cin ->
                         TarArchiveInputStream(cin).use { tis ->
-                        var entry: TarArchiveEntry? = tis.nextEntry
-                        while (entry != null) {
-                            entryCount++
-                            val rawName = entry.name
-                                .removePrefix("./")
-                                .removePrefix("/")
-                            val name = when {
-                                topLevelPrefix == null -> rawName
-                                rawName == topLevelPrefix || rawName == "$topLevelPrefix/" -> ""
-                                rawName.startsWith("$topLevelPrefix/") -> rawName.substring(topLevelPrefix.length + 1)
-                                else -> rawName
-                            }
-
-                            if (name.isEmpty() || name.startsWith("dev/") || name == "dev") {
-                                entry = tis.nextEntry
-                                continue
-                            }
-
-                            val outFile = File(rootfsDir, name)
-
-                            when {
-                                entry.isDirectory -> {
-                                    outFile.mkdirs()
+                            var entry: TarArchiveEntry? = tis.nextEntry
+                            while (entry != null) {
+                                entryCount++
+                                val rawName = entry.name
+                                    .removePrefix("./")
+                                    .removePrefix("/")
+                                val name = when {
+                                    topLevelPrefix == null -> rawName
+                                    rawName == topLevelPrefix || rawName == "$topLevelPrefix/" -> ""
+                                    rawName.startsWith("$topLevelPrefix/") -> rawName.substring(topLevelPrefix.length + 1)
+                                    else -> rawName
                                 }
-                                entry.isSymbolicLink -> {
-                                    // Defer symlinks to phase 2. Keep linkName as-is
-                                    // (relative to the link's location in the archive).
-                                    deferredSymlinks.add(
-                                        Pair(entry.linkName, outFile.absolutePath)
-                                    )
-                                    symlinkCount++
+
+                                if (name.isEmpty() || name.startsWith("dev/") || name == "dev") {
+                                    entry = tis.nextEntry
+                                    continue
                                 }
-                                entry.isLink -> {
-                                    // Hard link → copy the target file. Strip the same
-                                    // wrapper prefix from the target entry name.
-                                    val rawTarget = entry.linkName
-                                        .removePrefix("./")
-                                        .removePrefix("/")
-                                    val target = when {
-                                        topLevelPrefix == null -> rawTarget
-                                        rawTarget == topLevelPrefix || rawTarget == "$topLevelPrefix/" -> ""
-                                        rawTarget.startsWith("$topLevelPrefix/") -> rawTarget.substring(topLevelPrefix.length + 1)
-                                        else -> rawTarget
+
+                                val outFile = File(rootfsDir, name)
+
+                                when {
+                                    entry.isDirectory -> {
+                                        outFile.mkdirs()
                                     }
-                                    val targetFile = File(rootfsDir, target)
-                                    outFile.parentFile?.mkdirs()
-                                    try {
-                                        if (targetFile.exists()) {
-                                            targetFile.copyTo(outFile, overwrite = true)
-                                            if (targetFile.canExecute()) {
+                                    entry.isSymbolicLink -> {
+                                        // Defer symlinks to phase 2
+                                        deferredSymlinks.add(
+                                            Pair(entry.linkName, outFile.absolutePath)
+                                        )
+                                        symlinkCount++
+                                    }
+                                    entry.isLink -> {
+                                        // Hard link → copy the target file
+                                        val rawTarget = entry.linkName
+                                            .removePrefix("./")
+                                            .removePrefix("/")
+                                        val target = when {
+                                            topLevelPrefix == null -> rawTarget
+                                            rawTarget == topLevelPrefix || rawTarget == "$topLevelPrefix/" -> ""
+                                            rawTarget.startsWith("$topLevelPrefix/") -> rawTarget.substring(topLevelPrefix.length + 1)
+                                            else -> rawTarget
+                                        }
+                                        val targetFile = File(rootfsDir, target)
+                                        outFile.parentFile?.mkdirs()
+                                        try {
+                                            if (targetFile.exists()) {
+                                                targetFile.copyTo(outFile, overwrite = true)
+                                                if (targetFile.canExecute()) {
+                                                    outFile.setExecutable(true, false)
+                                                }
+                                                fileCount++
+                                            }
+                                        } catch (_: Exception) {}
+                                    }
+                                    else -> {
+                                        // Regular file
+                                        outFile.parentFile?.mkdirs()
+                                        FileOutputStream(outFile).use { fos ->
+                                            val buf = ByteArray(65536)
+                                            var len: Int
+                                            while (tis.read(buf).also { len = it } != -1) {
+                                                fos.write(buf, 0, len)
+                                            }
+                                        }
+                                        outFile.setReadable(true, false)
+                                        outFile.setWritable(true, false)
+                                        val mode = entry.mode
+                                        if (mode == 0 || mode and 0b001_001_001 != 0) {
+                                            val path = name.lowercase()
+                                            if (mode and 0b001_001_001 != 0 ||
+                                                path.contains("/bin/") ||
+                                                path.contains("/sbin/") ||
+                                                path.endsWith(".sh") ||
+                                                path.contains("/lib/apt/methods/")) {
                                                 outFile.setExecutable(true, false)
                                             }
-                                            fileCount++
                                         }
-                                    } catch (_: Exception) {}
-                                }
-                                else -> {
-                                    // Regular file
-                                    outFile.parentFile?.mkdirs()
-                                    FileOutputStream(outFile).use { fos ->
-                                        val buf = ByteArray(65536)
-                                        var len: Int
-                                        while (tis.read(buf).also { len = it } != -1) {
-                                            fos.write(buf, 0, len)
-                                        }
+                                        fileCount++
                                     }
-                                    outFile.setReadable(true, false)
-                                    outFile.setWritable(true, false)
-                                    val mode = entry.mode
-                                    if (mode == 0 || mode and 0b001_001_001 != 0) {
-                                        val path = name.lowercase()
-                                        if (mode and 0b001_001_001 != 0 ||
-                                            path.contains("/bin/") ||
-                                            path.contains("/sbin/") ||
-                                            path.endsWith(".sh") ||
-                                            path.contains("/lib/apt/methods/")) {
-                                            outFile.setExecutable(true, false)
-                                        }
-                                    }
-                                    fileCount++
                                 }
 
                                 entry = tis.nextEntry
@@ -253,7 +249,6 @@ class BootstrapManager(
                         }
                     }
                 }
-            }
             }
         } catch (e: Exception) {
             extractionError = e
