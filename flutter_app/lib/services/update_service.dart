@@ -34,7 +34,15 @@ class UpdateService {
   /// 单个更新源返回的解析结果。
   Future<UpdateInfo?> _fetchFromSource(String sourceUrl) async {
     try {
-      final resp = await _dio.get(sourceUrl,
+      // 七牛 CDN(m.ebmma.com) 会缓存 version.json，导致拿不到最新版、误显"已是最新"。
+      // 给非 GitHub 源加时间戳戳绕过缓存（实测该 CDN 按 query 区分缓存，加戳即取最新）。
+      // GitHub API 不缓存版本列表，无需加戳。
+      String effectiveUrl = sourceUrl;
+      if (!sourceUrl.contains('api.github.com')) {
+        final sep = sourceUrl.contains('?') ? '&' : '?';
+        effectiveUrl = '$sourceUrl${sep}_=${DateTime.now().millisecondsSinceEpoch}';
+      }
+      final resp = await _dio.get(effectiveUrl,
           options: Options(
             responseType: ResponseType.json,
             sendTimeout: const Duration(seconds: 15),
@@ -68,8 +76,12 @@ class UpdateService {
   }
 
   /// 依次尝试所有更新源，返回第一个能拿到且版本更新的结果。
+  /// v0.3.44 起：优先用七牛中央清单 sources.json 里的 version_json 地址（换源无需重发 App），
+  /// 清单不可用时 resolveVersionJsonUrl 自动回退硬编码七牛地址；GitHub 作为最终兜底。
   Future<UpdateInfo?> checkUpdate() async {
-    for (final src in AppConstants.updateSources) {
+    final List<String> sources = [await AppConstants.resolveVersionJsonUrl()];
+    sources.add(AppConstants.updateSourceGithub);
+    for (final src in sources) {
       final info = await _fetchFromSource(src);
       if (info != null && compareVersion(info.version, AppConstants.version) > 0) {
         return info;

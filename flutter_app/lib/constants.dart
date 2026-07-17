@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
+
 class AppConstants {
   static const String appName = 'Hermes Android App';
-  static const String version = '0.3.43';
+  static const String version = '0.3.44';
   // build number bumped to +51 with the v0.3.19 old-problems fix batch
   static const String packageName = 'com.nxg.hermesagentmobile';
 
@@ -34,6 +36,66 @@ class AppConstants {
   }
   static const String qiniuApkBaseUrl = 'http://m.ebmma.com/hermesmb';
 
+  /// v0.3.44 起：所有下载源（rootfs / 更新）统一由七牛上的**中央清单文件** sources.json 决定，
+  /// 不再硬编码具体地址。该清单地址是 App 里**唯一写死**的值（永久固定），以后你换源/换桶/
+  /// 换版本标签，只改七牛上的 sources.json，App 无需重新发版。
+  /// 拉取时带 ?_=时间戳 破除七牛 CDN 缓存（否则会读到旧清单）。
+  static const String sourcesManifestUrl =
+      'http://m.ebmma.com/hermesmb/sources.json';
+
+  static String get _sourcesManifestUrlNoCache =>
+      '$sourcesManifestUrl?_=${DateTime.now().millisecondsSinceEpoch}';
+
+  /// 拉取七牛中央清单；失败（网络/解析/字段缺失）返回 null，调用方回退硬编码地址。
+  /// 超时 10s，绝不让初始化/更新检查卡死。
+  static final Dio _manifestDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+    responseType: ResponseType.json,
+  ));
+
+  static Future<Map<String, dynamic>?> _fetchSourcesManifest() async {
+    try {
+      final resp = await _manifestDio.get(_sourcesManifestUrlNoCache);
+      if (resp.statusCode == 200 && resp.data is Map) {
+        return Map<String, dynamic>.from(resp.data as Map);
+      }
+    } catch (_) {
+      // 忽略一切异常 -> 回退硬编码
+    }
+    return null;
+  }
+
+  /// 解析指定架构的 rootfs 下载地址；清单不可用/字段缺失时回退硬编码七牛地址（getRootfsUrl）。
+  static Future<String> resolveRootfsUrl(String arch) async {
+    final m = await _fetchSourcesManifest();
+    if (m != null) {
+      try {
+        final rootfs = m['rootfs'] as Map<String, dynamic>;
+        final base = (rootfs['base_url'] as String?) ?? '';
+        final files = rootfs['files'] as Map<String, dynamic>? ?? {};
+        final name = files[arch] as String? ?? files['aarch64'] as String?;
+        if (base.isNotEmpty && name != null && name.isNotEmpty) {
+          return '$base$name';
+        }
+      } catch (_) {}
+    }
+    return getRootfsUrl(arch);
+  }
+
+  /// 解析 version.json 地址；清单不可用/缺失时回退硬编码七牛地址。
+  static Future<String> resolveVersionJsonUrl() async {
+    final m = await _fetchSourcesManifest();
+    if (m != null) {
+      try {
+        final upd = m['update'] as Map<String, dynamic>? ?? {};
+        final v = upd['version_json'] as String?;
+        if (v != null && v.isNotEmpty) return v;
+      } catch (_) {}
+    }
+    return updateSourceQiniu;
+  }
+
   static const String orgName = 'Hermes Android App';
   static const String orgEmail = 'const1981@users.noreply.github.com';
 
@@ -42,10 +104,13 @@ class AppConstants {
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
   /// v0.3.42 起改用 Debian（proot-distro 官方 bookworm rootfs）。
-  /// 来源：termux/proot-distro releases（.tar.xz，已验证可经 XZCompressorInputStream 解压）。
-  /// 比 Debian base 更精简（apt 源更干净、包更少），国内下载走代理/镜像。
+  /// 来源：termux/proot-distro 官方 .tar.xz（已验证可经 XZCompressorInputStream 解压），
+  /// v0.3.44 起**镜像到七牛 const/hermesmb**（m.ebmma.com 国内永久域名、HTTP 明文），
+  /// 用七牛国内流量下载，解决 GitHub 海外源国内慢/不稳的问题。文件名与原 release 保持一致。
+  /// 注：自 v0.3.44 起 rootfs 实际地址优先由七牛中央清单 sources.json 解析（见 resolveRootfsUrl），
+  /// 这里的 debianRootfsBaseUrl / getRootfsUrl 仅作为清单不可用时的**兜底硬编码地址**。
   static const String debianRootfsBaseUrl =
-      'https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-';
+      'http://m.ebmma.com/hermesmb/debian-bookworm-';
   static const String rootfsArm64 = '${debianRootfsBaseUrl}aarch64-pd-v4.17.3.tar.xz';
   static const String rootfsArmhf = '${debianRootfsBaseUrl}arm-pd-v4.17.3.tar.xz';
   static const String rootfsAmd64 = '${debianRootfsBaseUrl}x86_64-pd-v4.17.3.tar.xz';

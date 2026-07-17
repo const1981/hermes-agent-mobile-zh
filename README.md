@@ -4,7 +4,7 @@
 
 手机本地运行 Hermes Agent 的调度层，**只有大模型推理走云端 API**。不是云端服务器、不在手机上跑模型。
 
-**最新版本：v0.3.38+70**（2026-07-17 发布）  
+**最新版本：v0.3.44+76**（2026-07-17 发布）  
 **许可证：[AGPL-3.0](LICENSE)**（2026-07-16 由 MIT 迁移至 AGPLv3）
 
 ---
@@ -15,7 +15,7 @@
 |------|--------|------|
 | **Hermes 调度层** | 手机本地 | 思考链、工具调用决策、记忆库、上下文管理、任务队列、多轮对话闭环 |
 | **本地工具** | 手机本地 | 文件读写、本地搜索、命令执行、定时任务（cron）、Web 搜索 |
-| **大模型推理** | 云端 API | 仅把 prompt 发往 OpenRouter / 智谱 / DeepSeek / Kimi 等，收到回答后本地继续调度 |
+| **大模型推理** | 云端 API | 仅把 prompt 发往 OpenRouter / 智谱 / DeepSeek / Kimi / 小米 MiMo / SiliconFlow 等，收到回答后本地继续调度 |
 | **配置 / 密钥 / 记忆** | 手机本地 | 全部存在 `~/.hermes/`，不经过任何第三方服务器 |
 
 **核心差异：** 市面上其他方案要么是"纯远程控制 APP"（手机只发指令、云端跑 Hermes），要么是"手机本地跑大模型"（Ollama / 量化模型本地推理，太吃资源）。本方案 **Hermes 本体完整在手机本地，仅 LLM 推理走云端 API**，兼得随身可用与性能。
@@ -30,13 +30,16 @@
 | 💬 **消息渠道网关** | 飞书 / 企业微信 / 钉钉 三种渠道填 Key 即配，Telegram 可额外配置 |
 | 🔋 **后台保活** | 3 个前台 Service（网关/终端/安装）+ 配合保活指南，锁屏也能 24/7 跑 |
 | 💰 **成本可控** | 支持 OpenRouter / 智谱 / DeepSeek / Kimi / 小米 MiMo / SiliconFlow 等，国内厂商有免费额度 |
-| 🔒 **数据留本地** | 对话与记忆存在手机 `filesDir/rootfs/ubuntu`，云端只传 prompt |
+| 🔒 **数据留本地** | 对话与记忆存在手机 `filesDir/rootfs/debian`，云端只传 prompt |
 | 🌐 **中英文切换** | 默认中文，设置页可切「跟随系统 / 简体中文 / English」|
-| 🎨 **一键安装** | APK 内置 proot + Ubuntu 运行环境，点图标即用，5 步向导全程界面点按 |
-| ⏱ **断点续传** | rootfs / Python / Hermes 已存在则跳过，第 4 步卡只重第 4 步 |
+| 🎨 **一键安装** | APK 内置 proot + Debian 运行环境，点图标即用，5 步向导全程界面点按 |
+| ⏱ **断点续传** | rootfs / Python / Hermes 已存在则跳过，失败可从断点续传 |
+| 🚀 **应用内更新** | 设置页「检查更新」一键拉取新版 APK（七牛云 `m.ebmma.com` 国内加速 + GitHub 兜底），不用再去网页手动下 |
+| 💬 **对话页自动启动网关** | 进「对话」页自动拉起本地网关（18789），无需手动去仪表盘点启动 |
 | 🚀 **终端常驻** | 单例 `TerminalSessionManager`，返回再进秒回对话，不冷启动 |
 | 📋 **日志筛选** | 今天 / 近 1 小时 / 近 24 小时 / 全部时间范围 |
-| 💾 **系统镜像** | Ghost 式打包导出 `rootfs/ubuntu`，可本地或局域网下载 |
+| 💾 **系统镜像** | Ghost 式打包导出 `rootfs/debian`，可本地或局域网下载 |
+| 🐧 **Debian 根系统** | v0.3.42 起由 Ubuntu 24.04 换为 **Debian 12 (bookworm)**（proot-distro 官方 rootfs），更精简、apt 走清华镜像 |
 
 ---
 
@@ -53,6 +56,7 @@
 ├─────────────────────────────────────────────────────────┤
 │  Services (业务层)                                       │
 │  Bootstrap / Gateway / Terminal / TerminalSessionMgr    │
+│  UpdateService (应用内更新)                              │
 ├─────────────────────────────────────────────────────────┤
 │  NativeBridge (MethodChannel) ~40+ methods              │
 ├─────────────────────────────────────────────────────────┤
@@ -60,14 +64,14 @@
 │  MainActivity / BootstrapManager / ProcessManager       │
 │  GatewayService(前台) / ArchUtils                       │
 ├─────────────────────────────────────────────────────────┤
-│  proot + Ubuntu 24.04 (ARM64 运行环境)                   │
+│  proot + Debian 12 bookworm (ARM64 运行环境)             │
 ├─────────────────────────────────────────────────────────┤
 │  Hermes Agent 引擎 (Python, 手机本地调度)                 │
 │  功能：思考链 / 工具调用 / 记忆库 / 多轮对话 / 任务队列     │
 └─────────────────────────────────────────────────────────┘
 ```
 
-核心数据流：安装向导 → proot 内装 Hermes → 填 Key 配模型 → 启网关 (18789) → 终端对话
+核心数据流：安装向导 → proot 内装 Hermes → 填 Key 配模型 → 启网关 (18789) → 对话页 / 终端对话
 
 ---
 
@@ -77,7 +81,7 @@
 |------|------|
 | 手机系统 | 安卓 8+（仅支持 ARM64 / armeabi-v7a，不支持 x86/x86_64 模拟器） |
 | 存储 | 装 APK 约 40MB；首次运行需约 500MB~1GB（rootfs + pip 依赖） |
-| 网络 | 能访问 GitHub / PyPI / Ubuntu 镜像 / 你选的模型 API |
+| 网络 | 能访问七牛云 `m.ebmma.com`（下载 Debian rootfs / 更新 APK，国内流量）/ PyPI / 模型 API |
 | 密钥 | 任一云端 LLM 的 API Key |
 
 ---
@@ -86,11 +90,13 @@
 
 ### 方式一：APK 一键安装（推荐）
 
-1. 从 [GitHub Releases](https://github.com/const1981/hermes-agent-mobile-zh/releases) 下载最新 `app-release.apk`（签名 `77f68bb3`，覆盖升级不丢数据）
-2. 打开 App → **Begin Setup** → App 自动下载 Ubuntu + 安装 Hermes（约 5–15 分钟）
-3. 进 Dashboard → 点「启动网关」（本机 `127.0.0.1:18789`）
+1. 从 [GitHub Releases](https://github.com/const1981/hermes-agent-mobile-zh/releases) 下载最新 APK，或用 App 内「设置 → 检查更新」一键升级（七牛云 `m.ebmma.com` 国内加速）
+2. 打开 App → **Begin Setup** → App 自动下载 Debian + 安装 Hermes（约 5–15 分钟，国内走清华镜像）
+3. **无需手动启动网关**：应用启动即自动起网关（18789），进「对话」页也会自动拉起
 4. 点「配置」→ 选服务商 + 填 API Key → 点「保存配置」（只写盘，不自动启停网关）
-5. 回到 Dashboard 启动/重启网关使配置生效，进「对话」页开始 Hermes 对话
+5. 进「对话」页或仪表盘终端，开始与 Hermes 对话
+
+> ⚠️ **从 v0.3.37 及更早版本升级到 Debian 版（v0.3.42+）时**：旧 Ubuntu 环境不会自动变成 Debian，需进「设置 → 重新初始化」重新下载解压 Debian 环境。
 
 ### 方式二：Termux 脚本（备选/排障）
 
@@ -100,10 +106,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/const1981/hermes-agent-mobil
 
 ---
 
-## 六、版本轨迹（v0.3.19 → v0.3.38）
+## 六、版本轨迹（v0.3.19 → v0.3.44）
 
 | 版本 | 日期 | 关键更新 |
 |------|------|----------|
+| **v0.3.44** | 2026-07-17 | **rootfs 镜像到七牛 + 中央清单文件**：Debian rootfs 三架构包镜像到七牛 `const/hermesmb`（国内流量，告别 GitHub 慢源）；新增七牛 `sources.json` 中央清单，App 启动时先拉清单解析 rootfs/更新源地址，**换源/换桶/换版本标签无需重发 App**；更新检查加 CDN 缓存破除 |
+| **v0.3.43** | 2026-07-17 | **修复 Debian rootfs 解压失败**：修正 .tar.xz 流式解压逻辑，海外 GitHub 源直拉；发 Release |
+| **v0.3.42** | 2026-07-17 | **根系统 Ubuntu → Debian 12 (bookworm)**（proot-distro 官方 rootfs，更精简、apt 走清华镜像）；全仓 `rootfs/ubuntu`→`rootfs/debian` |
+| **v0.3.41** | 2026-07-17 | **对话页自动启动网关**：进「对话」页自动拉起网关，不再卡"要启动网关"；`autoStartGateway` 默认开启 |
+| **v0.3.40** | 2026-07-17 | **应用内更新接通七牛云**：更新源落地 `const` 桶 `hermesmb/` 目录（`m.ebmma.com` 永久域名，HTTP 明文）；上传脚本 `tools/scripts/upload_apk_qiniu.py` |
+| **v0.3.39** | 2026-07-17 | **应用内更新框架**：FileProvider + 系统安装器 + `UpdateService` + 设置页「检查更新」（七牛优先、GitHub 兜底） |
 | v0.3.38 | 2026-07-17 | **P0 修复网关 0 秒崩溃**：去掉 `/bin/bash -c` 中间层，改由 venv python 直接 exec launch 脚本（规避 proot 下 bash ENOSYS） |
 | v0.3.37 | 2026-07-17 | 网关只手动启停，崩溃后不再自动重启（去 maxRestarts 循环） |
 | v0.3.36 | 2026-07-17 | **收敛网关开关**：只保留仪表盘「启动/停止网关」，删配置页「重启网关」与独立网关页 |
@@ -125,27 +137,42 @@ bash <(curl -fsSL https://raw.githubusercontent.com/const1981/hermes-agent-mobil
 | v0.3.20 | 2026-07-15 | **P0 修复 config 写盘 schema** / 移除整文件夹备份 / 终端美化 / 安装引导横幅 |
 | v0.3.19 | 2026-07-15 | **根治网关自关 & hermes not found** / 清理垃圾 / 图标去白边 |
 
-完整轨迹见 [项目进度与接手说明.md](项目进度与接手说明.md)。
+完整轨迹见 [项目文档/版本清单.md](项目文档/版本清单.md)。
 
 ---
 
 ## 七、常见问题
 
 **Q：安装很慢 / pip 报错？**
-A：已默认配置国内镜像（CNB 源码镜像 / 清华 pip 源 / 阿里云 apt 源 / 国内 DNS），无需额外设置。
+A：已默认配置国内镜像（CNB 源码镜像 / 清华 pip 源 / 清华 Debian apt 源 / 国内 DNS），无需额外设置。Debian rootfs 包已镜像到七牛云 `m.ebmma.com`（国内流量），App 通过七牛 `sources.json` 清单自动解析地址，换源无需重装。
 
 **Q：想换模型或换 Key？**
-A：App 内「Configure」→ 模型 Tab → 选供应商 + 填 Key → 保存重启网关。支持自定义 OpenAI 兼容端点。
+A：App 内「配置」→ 模型 Tab → 选供应商 + 填 Key → 保存。支持自定义 OpenAI 兼容端点。
+
+**Q：对话页提示"正在启动网关"很久？**
+A：网关底层是 proot + Python，在手机上冷启动需要时间（这是 proot 架构特性）。v0.3.41 起应用启动即自动起网关，常驻后后续进对话页秒连。
 
 **Q：和其他手机端方案有什么区别？**
-A：本 App 自带完整 proot + Ubuntu 运行环境，Hermes 本体在手机本地跑，不是"手机只当遥控器"的伪方案。
+A：本 App 自带完整 proot + Debian 运行环境，Hermes 本体在手机本地跑，不是"手机只当遥控器"的伪方案。
 
 **Q：iOS 能用吗？**
 A：本仓库聚焦安卓。iOS 因沙盒限制无法本地驻留 Hermes 进程，暂不提供支持。
 
 ---
 
-## 八、相关仓库
+## 八、未来 APP 计划（路线图）
+
+> 维护态下的下一阶段主线，按优先级排序（来源：2026-07-17 臣哥与 Agent 共识）。
+
+1. **网关常驻与崩溃自愈（性能主线）**：当前"卡"的根因是 proot 本身（无真实内核权限，系统调用全翻译），换 Debian 只能小幅优化。下一步重点——网关进程常驻不退出（减少冷启动）、断线自动重连、更清晰的健康态展示；目标是让对话响应明显变快。
+2. **Skill 管理升级（v0.3.45 候选）**：已装列表 / 卸载 / 启用 + SOUL.md/USER.md 编辑器 + 临时 skill TTL 清理 + 「让 Agent 学习此 skill」按钮。
+3. **分身 / 第二实例（v0.3.46 候选）**：独立端口（18790）+ 独立 HOME + SOUL.md，实现多 Agent 并行。
+4. **✅ 更新源加固（v0.3.44 已完成）**：Debian rootfs 已镜像到七牛 `const/hermesmb`，并由 `sources.json` 中央清单管理，换源无需重发 App；七牛测试域名过期风险已通过 `const/hermesmb` 永久域名规避。
+5. **文档与版本号常驻**：README/版本清单持续与代码同步（已对齐至 v0.3.44）；App 界面常驻版本号（首页页脚）仍待做（v0.3.45 候选）。
+
+---
+
+## 九、相关仓库
 
 | 仓库 | 说明 |
 |------|------|

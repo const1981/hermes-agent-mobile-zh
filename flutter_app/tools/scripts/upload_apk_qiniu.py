@@ -59,7 +59,7 @@ def main():
     # 1) 上传 APK
     print(f"[1/2] 上传 APK -> {BUCKET}/{apk_key}")
     token = q.upload_token(BUCKET, apk_key, 3600)
-    ret, info = put_file(token, apk_key, apk_path)
+    ret, info = put_data(token, apk_key, open(apk_path, "rb").read())
     if info.status_code != 200:
         sys.exit(f"APK 上传失败: {info.status_code} {ret}")
     print("     OK:", ret)

@@ -140,7 +140,9 @@ class BootstrapService {
       try { await NativeBridge.writeResolv(); } catch (_) {}
 
       final arch = await NativeBridge.getArch();
-      final rootfsUrl = AppConstants.getRootfsUrl(arch);
+      // v0.3.44 起：rootfs 地址优先由七牛中央清单 sources.json 解析（换源无需重发 App），
+      // 清单拉不到时 resolveRootfsUrl 内部自动回退到硬编码七牛地址。
+      final rootfsUrl = await AppConstants.resolveRootfsUrl(arch);
       final filesDir = await NativeBridge.getFilesDir();
 
       // 模拟器（x86 / x86_64）无法执行 arm64 的 libproot.so，提前给出明确提示，
