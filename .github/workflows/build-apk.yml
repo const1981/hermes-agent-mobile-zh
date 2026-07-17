@@ -69,9 +69,11 @@ jobs:
             echo "keystore.p12 missing; using default debug signing"
           fi
 
+      # 关键：必须 --no-tree-shake-icons。否则 MaterialIcons 字体被压到 9.9KB（99.4%），
+      # 仅剩极少数字形，App 内所有图标/按钮都会变成方块占位符（v0.3.48 出现的"图标全错"现象）。
       - name: Build release APK (fixed-key signed, installable & overwritable)
         working-directory: flutter_app
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
         env:
           GRADLE_OPTS: "-Xmx4g"
 

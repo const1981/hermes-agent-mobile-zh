@@ -92,11 +92,44 @@ if not isinstance(_cfg, dict):
 _platforms = _cfg.get('platforms')
 if not isinstance(_platforms, dict):
     _platforms = {}
-_platforms['api_server'] = {
-    'enabled': True,
-    'host': '127.0.0.1',
-    'port': 18789,
-}
+
+# 解析 api_server 访问密钥：必须和 App 端对话请求带的 Bearer 一致，否则网关
+# 拒绝启动（API_SERVER_KEY is required）或 401。
+# 优先级与 App 端 ConfigProvider.loadEnv 完全一致：XIAOMI_API_KEY > HERMES_API_KEY，
+# 再兜底 config.yaml 的 model.api_key（可能引用环境变量、由网关自身展开），最后给固定值。
+def _resolve_api_key():
+    _env = {}
+    try:
+        with open('/root/.hermes/.env', 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                _env[k.strip()] = v.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    key = _env.get('XIAOMI_API_KEY') or _env.get('HERMES_API_KEY') or ''
+    if key:
+        return key
+    _m = _cfg.get('model')
+    if isinstance(_m, dict) and _m.get('api_key'):
+        return _m.get('api_key')
+    return 'hermes-mobile-local'
+
+_api_server = _platforms.get('api_server')
+if not isinstance(_api_server, dict):
+    _api_server = {}
+# 用户已显式配置 api_server 时，仅补全缺失字段，绝不覆盖既有 api_key。
+if not _api_server.get('enabled'):
+    _api_server['enabled'] = True
+if not _api_server.get('host'):
+    _api_server['host'] = '127.0.0.1'
+if not _api_server.get('port'):
+    _api_server['port'] = 18789
+if not _api_server.get('api_key'):
+    _api_server['api_key'] = _resolve_api_key()
+_platforms['api_server'] = _api_server
 _cfg['platforms'] = _platforms
 
 with open('/root/.hermes/mobile_gateway.yaml', 'w', encoding='utf-8') as f:
