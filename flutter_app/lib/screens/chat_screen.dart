@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/chat_message.dart';
 import '../models/gateway_state.dart';
 import '../services/chat_service.dart';
@@ -25,6 +28,43 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _busy = false;
   String _status = '';
   VoidCallback? _cancelFn;
+  bool _historyLoaded = false;
+
+  static const _historyFileName = 'chat_history.json';
+
+  Future<File> _historyFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/$_historyFileName');
+  }
+
+  /// 从磁盘恢复历史对话。app 重启/切走再回来都不会丢消息。
+  Future<void> _loadMessages() async {
+    try {
+      final file = await _historyFile();
+      if (!await file.exists()) return;
+      final text = await file.readAsString();
+      if (text.isEmpty) return;
+      final List<dynamic> jsonList = jsonDecode(text);
+      final loaded = jsonList
+          .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+          .toList();
+      if (mounted) setState(() => _messages.addAll(loaded));
+    } catch (_) {
+      // 历史文件损坏则忽略，重新开始（不阻塞使用）
+    }
+  }
+
+  /// 落盘当前对话。流式占位不写（避免存到半截空气泡）。
+  Future<void> _saveMessages() async {
+    try {
+      final file = await _historyFile();
+      final jsonList =
+          _messages.where((m) => !m.isStreaming).map((m) => m.toJson()).toList();
+      await file.writeAsString(jsonEncode(jsonList));
+    } catch (_) {
+      // 写入失败（权限/IO）不影响内存中的对话
+    }
+  }
 
   @override
   void initState() {
@@ -34,6 +74,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final cfg = context.read<ConfigProvider>();
       await cfg.loadEnv();
       await cfg.loadModelConfig();
+      // 恢复历史对话（仅首次进入加载一次）
+      if (!_historyLoaded) {
+        _historyLoaded = true;
+        await _loadMessages();
+      }
       // 自动确保网关已启动（v0.3.41）：进对话页不需要先去仪表盘点启动。
       // 若网关未运行且未在启动中，主动拉起；状态由 GatewayProvider 广播。
       final gw = context.read<GatewayProvider>();
@@ -90,6 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _status = '';
       _inputController.clear();
     });
+    _saveMessages(); // 用户这条立即落盘（助手占位是流式，不会被存）
     _scrollToBottom();
 
     // 发给网关的历史 = 除最后一条占位外的全部消息
@@ -120,6 +166,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _busy = false;
           _status = '';
         });
+        _saveMessages(); // 完整回复落盘
         _cancelFn = null;
         _scrollToBottom();
       },
@@ -138,12 +185,14 @@ class _ChatScreenState extends State<ChatScreen> {
         _busy = false;
         _status = '';
       });
+      _saveMessages();
     }
   }
 
   void _clear() {
     if (_busy) return;
     setState(() => _messages.clear());
+    _saveMessages(); // 落盘空列表 == 清空历史
   }
 
   void _showSnack(String msg) {

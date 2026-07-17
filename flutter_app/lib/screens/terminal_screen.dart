@@ -83,19 +83,34 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   /// 接管全局常驻终端进程（单例）。
   /// 首次进入会自动拉起 proot/Hermes；返回再进直接复用，秒回对话。
+  /// 关键修复：再次进入时把单例里累积的历史输出重放到新的 xterm，
+  /// 否则 dispose 后重建的 Terminal 是空白的（进程一直活着，只丢显示缓冲）。
   Future<void> _attachShell() async {
     try {
       final mgr = TerminalSessionManager.instance;
-      mgr.onOutput = (data) {
+
+      // 实时输出回调（replay 完成后再接上，避免历史与实时重复写屏）
+      void realOnOutput(Uint8List data) {
         if (!mounted) return;
         _terminal.write(utf8.decode(data, allowMalformed: true));
-      };
+      }
+
+      // replay 之前先把实时输出缓冲掉（写屏延后），历史已在 _bufferedOutput
+      mgr.onOutput = (_) {};
       mgr.onExit = (code) {
         if (!mounted) return;
         _terminal.write('\r\n[Shell exited with code $code]\r\n');
       };
 
       _pty = await mgr.acquire();
+
+      // 重放历史输出：再次进入不再从 0 开始
+      final replay = mgr.bufferedOutput;
+      if (replay.isNotEmpty) {
+        _terminal.write(replay);
+      }
+      // 接上实时流
+      mgr.onOutput = realOnOutput;
 
       _terminal.onOutput = (data) {
         // Workaround for xterm-on-Android double input:

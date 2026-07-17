@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_pty/flutter_pty.dart';
@@ -23,6 +24,11 @@ class TerminalSessionManager {
   // 用 var 而非 final：会话进程退出后必须换成全新的 Completer，
   // 否则下次 acquire() 会拿到已完成的旧 future，终端永久坏死。
   var _ready = Completer<Pty>();
+
+  /// 已输出到终端的历史内容（用于再次进入时重放，避免空白）。
+  /// 上限 200k 字符，约等于终端滚动历史，防止无限增长。
+  String _bufferedOutput = '';
+  String get bufferedOutput => _bufferedOutput;
 
   /// 已写入终端的回调（供 UI 把输出渲染出来）
   void Function(Uint8List)? onOutput;
@@ -57,6 +63,7 @@ class TerminalSessionManager {
   }
 
   Future<void> _start() async {
+    _bufferedOutput = ''; // 新会话：历史缓冲清零
     try { await NativeBridge.setupDirs(); } catch (_) {}
     try { await NativeBridge.writeResolv(); } catch (_) {}
     try {
@@ -85,7 +92,14 @@ class TerminalSessionManager {
     );
 
     _pty!.output.cast<List<int>>().listen((data) {
-      onOutput?.call(Uint8List.fromList(data));
+      final bytes = Uint8List.fromList(data);
+      onOutput?.call(bytes);
+      // 累积历史输出，供再次进入时重放（带上限保护）
+      _bufferedOutput += utf8.decode(data, allowMalformed: true);
+      if (_bufferedOutput.length > 200000) {
+        _bufferedOutput =
+            _bufferedOutput.substring(_bufferedOutput.length - 200000);
+      }
     });
     _pty!.exitCode.then((code) {
       onExit?.call(code);

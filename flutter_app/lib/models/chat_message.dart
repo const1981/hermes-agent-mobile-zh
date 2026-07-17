@@ -26,4 +26,19 @@ class ChatMessage {
       );
 
   Map<String, String> toApi() => {'role': role, 'content': content};
+
+  /// 持久化用：只存必要字段。isStreaming 不存（落盘时一律按已完成处理）。
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'content': content,
+        'isError': isError,
+      };
+
+  /// 从磁盘恢复：流式标记强制为 false（app 关闭时未完成的回复视为已结束）。
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+        role: json['role'] as String,
+        content: json['content'] as String,
+        isError: json['isError'] as bool? ?? false,
+        isStreaming: false,
+      );
 }
