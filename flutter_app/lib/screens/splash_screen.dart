@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +5,7 @@ import '../constants.dart';
 import '../l10n/app_strings.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/snapshot_service.dart';
 import 'setup_wizard_screen.dart';
 import 'main_screen.dart';
 
@@ -73,28 +73,21 @@ class _SplashScreenState extends State<SplashScreen>
       final prefs = PreferencesService();
       await prefs.init();
 
-      // Auto-export snapshot when app version changes
+      // v0.3.50：版本变化时自动导出含密钥的快照到外部存储（hermes-snapshot.json），
+      // 这样即使之后卸载重装，SetupWizard 完成页也能一键恢复 Key。
+      // 早期版本只导 config.yaml、漏掉 .env（密钥），且文件名带版本号导致 import 读不到。
       try {
         final oldVersion = prefs.lastAppVersion;
         if (oldVersion != null && oldVersion != AppConstants.displayVersion) {
           final hasPermission = await NativeBridge.hasStoragePermission();
           if (hasPermission) {
-            final sdcard = await NativeBridge.getExternalStoragePath();
-            final downloadDir = Directory('$sdcard/Download');
-            if (!await downloadDir.exists()) {
-              await downloadDir.create(recursive: true);
-            }
-            final snapshotPath = '$sdcard/Download/hermes-snapshot-$oldVersion.json';
-            final hermesConfig = await NativeBridge.readRootfsFile('root/.hermes/config.yaml');
-            final snapshot = {
-              'version': oldVersion,
-              'timestamp': DateTime.now().toIso8601String(),
-              'hermesConfig': hermesConfig,
-              'autoStart': prefs.autoStartGateway,
-            };
-            await File(snapshotPath).writeAsString(
-              const JsonEncoder.withIndent('  ').convert(snapshot),
-            );
+            final path = await SnapshotService.exportSnapshot();
+            // 额外保留带旧版本号的归档，便于追溯历史
+            try {
+              final sdcard = await NativeBridge.getExternalStoragePath();
+              final archivePath = '$sdcard/Download/hermes-snapshot-$oldVersion.json';
+              await File(path).copy(archivePath);
+            } catch (_) {}
           }
         }
         prefs.lastAppVersion = AppConstants.displayVersion;

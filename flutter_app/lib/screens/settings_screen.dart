@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
 import '../constants.dart';
@@ -10,6 +8,7 @@ import '../l10n/app_strings.dart';
 import '../providers/locale_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/snapshot_service.dart';
 import '../services/update_service.dart';
 import 'setup_wizard_screen.dart';
 import 'logs_screen.dart';
@@ -299,33 +298,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<String> _getSnapshotPath() async {
-    final hasPermission = await NativeBridge.hasStoragePermission();
-    if (hasPermission) {
-      final sdcard = await NativeBridge.getExternalStoragePath();
-      final downloadDir = Directory('$sdcard/Download');
-      if (!await downloadDir.exists()) {
-        await downloadDir.create(recursive: true);
-      }
-      return '$sdcard/Download/hermes-snapshot.json';
-    }
-    final dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/hermes-snapshot.json';
+    return SnapshotService.getSnapshotPath();
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final hermesConfig = await NativeBridge.readRootfsFile('root/.hermes/config.yaml');
-      // 配置备份 = 设置文件：config.yaml + .env（含渠道密钥等）。整文件夹镜像请用「系统镜像」页。
-      final hermesEnv = await NativeBridge.readRootfsFile('root/.hermes/.env');
-      final snapshot = {
-        'version': AppConstants.displayVersion,
-        'timestamp': DateTime.now().toIso8601String(),
-        'hermesConfig': hermesConfig,
-        'hermesEnv': hermesEnv,
-        'autoStart': _prefs.autoStartGateway,
-      };
-      final path = await _getSnapshotPath();
-      await File(path).writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
+      // 配置备份 = 设置文件：config.yaml + .env（含模型 Key / 渠道密钥）。
+      // 整文件夹镜像请用「系统镜像」页。集中到 SnapshotService，确保始终含 .env。
+      final path = await SnapshotService.exportSnapshot();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.snapshotSaved(path))),
@@ -515,18 +495,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       }
-      final content = await file.readAsString();
-      final snapshot = jsonDecode(content) as Map<String, dynamic>;
-      final hermesConfig = snapshot['hermesConfig'] as String?;
-      if (hermesConfig != null) {
-        await NativeBridge.writeRootfsFile('root/.hermes/config.yaml', hermesConfig);
-      }
-      final hermesEnv = snapshot['hermesEnv'] as String?;
-      if (hermesEnv != null) {
-        await NativeBridge.writeRootfsFile('root/.hermes/.env', hermesEnv);
-      }
-      if (snapshot['autoStart'] != null) {
-        _prefs.autoStartGateway = snapshot['autoStart'] as bool;
+      final restored = await SnapshotService.importSnapshot();
+      if (!restored) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('快照为空，无需恢复')),
+        );
+        return;
       }
       await _loadSettings();
       if (!mounted) return;

@@ -8,6 +8,7 @@ import '../models/gateway_state.dart';
 import '../services/chat_service.dart';
 import '../providers/config_provider.dart';
 import '../providers/gateway_provider.dart';
+import 'configure_screen.dart';
 
 /// 微信风「与 AI 主 Agent 对话」界面。
 /// 替换原「对话终端」入口：不走终端，直接打本地网关的 OpenAI 兼容接口，
@@ -247,6 +248,36 @@ class _ChatScreenState extends State<ChatScreen> {
               if (gw.isRunning) return const SizedBox.shrink();
               final starting = gw.state.status == GatewayStatus.starting;
               final errored = gw.state.status == GatewayStatus.error;
+              final needConfig = gw.state.needsConfiguration;
+              // v0.3.50：自动启动因「未配置 Key」被跳过时，明确引导去配置页，
+              // 而不是误导用户以为在「自动启动」。
+              if (needConfig) {
+                return Container(
+                  width: double.infinity,
+                  color: Colors.orange.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.key_outlined, color: Colors.orange, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '尚未配置模型 Key，请先到「配置」页填写后再启动网关',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const ConfigureScreen()),
+                        ),
+                        child: const Text('去配置'),
+                      ),
+                    ],
+                  ),
+                );
+              }
               return Container(
                 width: double.infinity,
                 color: starting ? Colors.blue.shade50 : Colors.orange.shade50,

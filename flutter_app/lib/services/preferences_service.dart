@@ -19,9 +19,10 @@ class PreferencesService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  // v0.3.41：默认开启自动启动网关。应用启动即拉起网关，避免用户进对话页
-  // 卡在「要启动网关」却不知道去哪点。已手动关过该开关的用户（存过 false）不受影响。
-  bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? true;
+  // v0.3.50：默认【关闭】自动启动网关。原则——「先配置好模型 Key 再手动启动」，
+  // 避免一上来没设好 Key 就拉起网关导致网页对话框鉴权失败（用户痛点）。
+  // 已手动开过该开关（存过 true）的老用户不受影响。
+  bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? false;
   set autoStartGateway(bool value) => _prefs.setBool(_keyAutoStart, value);
 
   bool get setupComplete => _prefs.getBool(_keySetupComplete) ?? false;

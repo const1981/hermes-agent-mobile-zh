@@ -55,11 +55,45 @@ class GatewayService {
       _subscribeLogs();
       _startHealthCheck();
     } else if (prefs.autoStartGateway) {
-      _updateState(_state.copyWith(
-        logs: [..._state.logs, _ts('[INFO] Auto-starting gateway...')],
-      ));
-      await start();
+      // v0.3.50：自动启动前先校验模型 Key 是否已配置。没设好就启动只会让
+      // 18789 端口鉴权失败、网页对话框不可用。未配置则跳过并提示用户去配置页。
+      final configured = await _isModelKeyConfigured();
+      if (!configured) {
+        _updateState(_state.copyWith(
+          needsConfiguration: true,
+          logs: [
+            ..._state.logs,
+            _ts('[WARN] 未检测到模型 Key，跳过自动启动。请先到「配置」页填写 Key，再手动启动网关。'),
+          ],
+        ));
+      } else {
+        _updateState(_state.copyWith(
+          logs: [..._state.logs, _ts('[INFO] Auto-starting gateway...')],
+        ));
+        await start();
+      }
     }
+  }
+
+  /// 检查 rootfs 内 ~/.hermes/.env 是否含有非空模型 Key（HERMES_API_KEY / XIAOMI_API_KEY）。
+  /// 这是「网关能否正常鉴权」的最小判据；rootfs 未解压或读不到一律视为未配置。
+  Future<bool> _isModelKeyConfigured() async {
+    try {
+      final env = await NativeBridge.readRootfsFile('root/.hermes/.env');
+      if (env == null || env.isEmpty) return false;
+      for (final line in env.split('\n')) {
+        final t = line.trim();
+        if (t.isEmpty || t.startsWith('#')) continue;
+        final idx = t.indexOf('=');
+        if (idx < 0) continue;
+        final k = t.substring(0, idx).trim();
+        final v = t.substring(idx + 1).trim();
+        if ((k == 'HERMES_API_KEY' || k == 'XIAOMI_API_KEY') && v.isNotEmpty) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
   }
 
   void _subscribeLogs() {

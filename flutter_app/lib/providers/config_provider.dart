@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/provider_template.dart';
 import '../services/native_bridge.dart';
+import '../services/snapshot_service.dart';
 
 /// Hermes 真实渠道变量名（官方文档 hermesagent.org.cn，无 HERMES_ 前缀，写 ~/.hermes/.env）
 /// 飞书:    FEISHU_APP_ID / FEISHU_APP_SECRET
@@ -435,5 +436,12 @@ model:
     }
     await NativeBridge.writeRootfsFile(path, newCfg);
     await saveEnv();
+    // v0.3.50：每次保存配置（含填写模型 Key）即把含密钥的快照落到外部存储，
+    // 作为卸载/重装的保护网——重装后 SetupWizard 完成页可一键恢复。
+    try {
+      await SnapshotService.exportSnapshot();
+    } catch (_) {
+      // 备份失败不阻塞主流程
+    }
   }
 }

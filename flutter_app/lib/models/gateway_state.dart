@@ -11,6 +11,9 @@ class GatewayState {
   final String? errorMessage;
   final DateTime? startedAt;
   final String? dashboardUrl;
+  /// v0.3.50：自动启动因「未配置模型 Key」被跳过时置 true，
+  /// UI 据此提示用户先去配置页填 Key，而不是误以为在自动启动。
+  final bool needsConfiguration;
 
   const GatewayState({
     this.status = GatewayStatus.stopped,
@@ -18,6 +21,7 @@ class GatewayState {
     this.errorMessage,
     this.startedAt,
     this.dashboardUrl,
+    this.needsConfiguration = false,
   });
 
   GatewayState copyWith({
@@ -29,6 +33,7 @@ class GatewayState {
     bool clearStartedAt = false,
     String? dashboardUrl,
     bool clearDashboardUrl = false,
+    bool? needsConfiguration,
   }) {
     return GatewayState(
       status: status ?? this.status,
@@ -36,6 +41,7 @@ class GatewayState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
       dashboardUrl: clearDashboardUrl ? null : (dashboardUrl ?? this.dashboardUrl),
+      needsConfiguration: needsConfiguration ?? this.needsConfiguration,
     );
   }
 

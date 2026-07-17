@@ -6,7 +6,7 @@ class AppConstants {
   /// 兜底版本号（编译期默认值）。真实版本由 [initRealVersion] 运行时读取 APK
   /// versionName 填充，UI 一律用 [displayVersion]，杜绝「界面旧版本、实际新包」的
   /// 双版本源漂移（v0.3.45→3.47 曾因忘了改这道常量而显示成 3.45）。
-  static String version = '0.3.49';
+  static String version = '0.3.50';
   static String? _realVersion;
 
   /// 运行时读取 APK 真实 versionName。必须在 main() 尽早 await 调用。

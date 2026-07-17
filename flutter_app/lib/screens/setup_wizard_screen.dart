@@ -6,6 +6,7 @@ import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/install_log.dart';
+import '../services/snapshot_service.dart';
 import '../widgets/progress_step.dart';
 import 'dashboard_screen.dart';
 
@@ -202,10 +203,58 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  void _goToDashboard(BuildContext context) {
+  Future<void> _goToDashboard(BuildContext context) async {
+    // v0.3.50：安装向导完成（rootfs 已解压）后，若外部存储存在配置快照（含 Key），
+    // 提示用户一键恢复，解决「卸载/重装丢 Key」的痛点。
+    await _maybeRestoreSnapshot(context);
+    if (!context.mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
     );
+  }
+
+  /// 重装/重置后：安装向导完成时检查 Download/hermes-snapshot.json，
+  /// 若存在且含配置/密钥，弹窗询问是否恢复。恢复写回 rootfs 的 config.yaml/.env。
+  Future<void> _maybeRestoreSnapshot(BuildContext context) async {
+    try {
+      final hasPermission = await NativeBridge.hasStoragePermission();
+      if (!hasPermission) return;
+      final snapshot = await SnapshotService.readSnapshot();
+      if (snapshot == null) return;
+      final hermesConfig = snapshot['hermesConfig'] as String? ?? '';
+      final hermesEnv = snapshot['hermesEnv'] as String? ?? '';
+      if (hermesConfig.isEmpty && hermesEnv.isEmpty) return;
+      final hasKey =
+          hermesEnv.contains(RegExp(r'(HERMES_API_KEY|XIAOMI_API_KEY)='));
+      if (!context.mounted) return;
+      final restore = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('恢复旧配置？'),
+          content: Text(hasKey
+              ? '检测到上次导出的配置快照（含模型 Key）。是否恢复，避免重新填写？'
+              : '检测到上次导出的配置快照。是否恢复？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('不用了'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('恢复'),
+            ),
+          ],
+        ),
+      );
+      if (restore != true) return;
+      final ok = await SnapshotService.importSnapshot();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? '已恢复旧配置（含模型 Key）' : '快照为空，未恢复'),
+        ),
+      );
+    } catch (_) {}
   }
 
   /// 进安装向导第一屏就开始申请所有需要的权限（存储 + 电池白名单）。
