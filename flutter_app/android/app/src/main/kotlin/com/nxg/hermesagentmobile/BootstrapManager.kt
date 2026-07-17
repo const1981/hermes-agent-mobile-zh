@@ -254,6 +254,7 @@ class BootstrapManager(
                     }
                 }
             }
+            }
         } catch (e: Exception) {
             extractionError = e
         }
