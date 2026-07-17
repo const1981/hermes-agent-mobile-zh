@@ -19,7 +19,9 @@ class PreferencesService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? false;
+  // v0.3.41：默认开启自动启动网关。应用启动即拉起网关，避免用户进对话页
+  // 卡在「要启动网关」却不知道去哪点。已手动关过该开关的用户（存过 false）不受影响。
+  bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? true;
   set autoStartGateway(bool value) => _prefs.setBool(_keyAutoStart, value);
 
   bool get setupComplete => _prefs.getBool(_keySetupComplete) ?? false;

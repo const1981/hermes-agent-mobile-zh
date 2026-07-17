@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_message.dart';
+import '../models/gateway_state.dart';
 import '../services/chat_service.dart';
 import '../providers/config_provider.dart';
 import '../providers/gateway_provider.dart';
@@ -33,6 +34,12 @@ class _ChatScreenState extends State<ChatScreen> {
       final cfg = context.read<ConfigProvider>();
       await cfg.loadEnv();
       await cfg.loadModelConfig();
+      // 自动确保网关已启动（v0.3.41）：进对话页不需要先去仪表盘点启动。
+      // 若网关未运行且未在启动中，主动拉起；状态由 GatewayProvider 广播。
+      final gw = context.read<GatewayProvider>();
+      if (!gw.isRunning && gw.state.status != GatewayStatus.starting) {
+        gw.start();
+      }
       if (mounted) setState(() {});
     });
   }
@@ -68,7 +75,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     final gw = context.read<GatewayProvider>();
     if (!gw.isRunning) {
-      _showSnack('网关未启动，请先点上方「启动网关」');
+      // 自动重试拉起网关（v0.3.41）：不再要求用户手动去仪表盘点。
+      if (gw.state.status != GatewayStatus.starting) {
+        gw.start();
+      }
+      _showSnack('网关正在启动，请稍候再发消息…');
       return;
     }
 
@@ -185,25 +196,47 @@ class _ChatScreenState extends State<ChatScreen> {
           Consumer<GatewayProvider>(
             builder: (context, gw, _) {
               if (gw.isRunning) return const SizedBox.shrink();
+              final starting = gw.state.status == GatewayStatus.starting;
+              final errored = gw.state.status == GatewayStatus.error;
               return Container(
                 width: double.infinity,
-                color: Colors.orange.shade50,
+                color: starting ? Colors.blue.shade50 : Colors.orange.shade50,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
-                    const Icon(Icons.cloud_off, color: Colors.orange, size: 18),
+                    if (starting)
+                      const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(
+                        errored ? Icons.error_outline : Icons.cloud_off,
+                        color: errored ? Colors.red : Colors.orange,
+                        size: 18,
+                      ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '网关未启动，无法对话',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.orange.shade800),
+                        starting
+                            ? '正在启动网关，请稍候…'
+                            : (errored
+                                ? '网关启动失败，请重试'
+                                : '网关未启动，正在自动启动…'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: errored
+                              ? Colors.red.shade800
+                              : (starting
+                                  ? Colors.blue.shade800
+                                  : Colors.orange.shade800),
+                        ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => gw.start(),
-                      child: const Text('启动网关'),
-                    ),
+                    if (!starting)
+                      TextButton(
+                        onPressed: () => gw.start(),
+                        child: const Text('重试'),
+                      ),
                   ],
                 ),
               );
