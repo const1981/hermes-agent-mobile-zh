@@ -10,6 +10,7 @@ import '../l10n/app_strings.dart';
 import '../providers/locale_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/update_service.dart';
 import 'setup_wizard_screen.dart';
 import 'logs_screen.dart';
 
@@ -184,6 +185,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 ListTile(
+                  title: const Text('检查更新'),
+                  subtitle: const Text('发现新版本可一键下载并安装'),
+                  leading: const Icon(Icons.system_update_alt),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _checkUpdate,
+                ),
+                ListTile(
                   title: Text(s.cleanGarbage),
                   subtitle: Text(s.cleanGarbageDesc),
                   leading: const Icon(Icons.cleaning_services),
@@ -329,6 +337,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
   }
+
+  /// 检查更新 → 有新版弹窗（含版本说明）→ 确认后下载并跳安装器。
+  Future<void> _checkUpdate() async {
+    if (!mounted) return;
+    late BuildContext dialogCtx;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('正在检查更新…'),
+        ]),
+      ),
+    );
+    try {
+      final info = await UpdateService().checkUpdate();
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 关闭"检查中"
+      if (info == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已是最新版本')),
+        );
+        return;
+      }
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('发现新版本 v${info.version}'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('是否下载并更新？'),
+                if (info.notes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('更新内容：',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(info.notes),
+                ],
+                const SizedBox(height: 8),
+                Text('当前版本：v${AppConstants.version}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('稍后'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('立即更新'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          dialogCtx = ctx;
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('正在下载更新…'),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (c, setBar) {
+                    _setProgress = setBar;
+                    return LinearProgressIndicator(value: _downloadProgress);
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text('${(_downloadProgress * 100).toInt()}%'),
+              ],
+            ),
+          );
+        },
+      );
+      _downloadProgress = 0;
+      await UpdateService().downloadAndInstall(
+        info,
+        onProgress: (p) {
+          _downloadProgress = p;
+          if (_setProgress != null) _setProgress!(() {});
+        },
+      );
+      if (!mounted) return;
+      Navigator.of(dialogCtx).pop(); // 关闭下载框（系统安装器已拉起）
+    } catch (e) {
+      if (!mounted) return;
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {}
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('更新失败：$e')),
+      );
+    }
+  }
+
+  double _downloadProgress = 0;
+  void Function(void Function())? _setProgress;
 
 
 

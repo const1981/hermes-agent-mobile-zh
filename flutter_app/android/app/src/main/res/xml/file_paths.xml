@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 应用内更新下载的 APK 放在 filesDir/apk_update/ 下，暴露给系统安装器 -->
+    <files-path name="apk_update" path="apk_update/" />
+</paths>

@@ -50,6 +50,12 @@ class NativeBridge {
     return await _channel.invokeMethod('isGatewayRunning');
   }
 
+  /// 应用内更新：调原生用 FileProvider 把已下载的 APK 交给系统安装器。
+  /// [apkPath] 为应用私有目录下的绝对路径（如 filesDir/apk_update/hermes-xxx.apk）。
+  static Future<void> installApk(String apkPath) async {
+    await _channel.invokeMethod('installApk', {'apkPath': apkPath});
+  }
+
   /// 保存配置后自动重启网关（对标 1Panel「保存并重启网关」）。
   /// 只停 Service 再起，不会杀掉整个 App。
   static Future<bool> restartGateway() async {
