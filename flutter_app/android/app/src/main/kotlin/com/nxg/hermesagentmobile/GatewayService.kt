@@ -385,10 +385,11 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
         emitLog("Gateway stopped by user")
         val filesDir = applicationContext.filesDir.absolutePath
         Thread({
-            var pythonKilled = false
-
-            // 1) Read the inner Python gateway PID and kill it directly.
-            // Under Android proot, the child PID is visible from the host.
+            // Best-effort: kill the inner Python gateway directly via its PID
+            // file. Under proot --kill-on-exit, terminating the proot wrapper
+            // below automatically reaps the inner Python process, so this is
+            // only a belt-and-suspenders measure. We never kill the host app
+            // here — that previously caused an instant crash on "stop gateway".
             val pythonPid = try {
                 val pidFile = File("$filesDir/rootfs/debian/root/.hermes/gateway.pid")
                 if (pidFile.exists()) pidFile.readText().trim() else null
@@ -400,31 +401,10 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
                 try {
                     Runtime.getRuntime().exec(arrayOf("kill", "-9", pythonPid))
                 } catch (_: Exception) {}
-
-                // 2) Wait 500ms and verify it is dead.
-                try { Thread.sleep(500) } catch (_: InterruptedException) {}
-
-                val isDead = try {
-                    val cmdline = File("/proc/$pythonPid/cmdline").readText()
-                    !cmdline.contains("python") && !cmdline.contains("gateway")
-                } catch (_: Exception) {
-                    true // /proc entry gone = dead
-                }
-
-                if (isDead) {
-                    pythonKilled = true
-                    emitLog("[INFO] Inner Python gateway killed (PID $pythonPid)")
-                } else {
-                    emitLog("[WARN] Failed to kill inner Python gateway (PID $pythonPid). Killing entire app.")
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                    return@Thread
-                }
-            } else {
-                // No PID file — assume already dead or never started properly
-                pythonKilled = true
             }
 
-            // 3) Now terminate the proot wrapper.
+            // Terminate the proot wrapper. With --kill-on-exit this also reaps
+            // the inner gateway. Never kill the host app process.
             procToStop?.let { proc ->
                 try {
                     proc.destroy()
@@ -435,6 +415,7 @@ os.execv(venv_python, [venv_python, 'gateway/run.py'])
                     try { proc.destroyForcibly() } catch (_: Exception) {}
                 }
             }
+            emitLog("[INFO] Gateway process tree terminated")
         }, "gateway-stop").apply { isDaemon = true }.start()
     }
 

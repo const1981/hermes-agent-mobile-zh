@@ -143,13 +143,17 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "stopGateway" -> {
+                    // Stop the gateway by tearing down the service. The proot
+                    // wrapper is launched with --kill-on-exit, so destroying the
+                    // wrapper process reaps the inner Python gateway automatically.
+                    // Do NOT kill the host app — that was the source of the
+                    // "stop gateway -> instant crash" bug.
                     try {
                         GatewayService.stop(applicationContext)
-                    } catch (_: Exception) {}
-                    // Hard-exit the whole app when stopping the gateway.
-                    // This is the only reliable way to ensure the proot/gateway
-                    // process hierarchy is fully terminated on Android.
-                    android.os.Process.killProcess(android.os.Process.myPid())
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SERVICE_ERROR", e.message, null)
+                    }
                 }
                 "isGatewayRunning" -> {
                     result.success(GatewayService.isProcessAlive())

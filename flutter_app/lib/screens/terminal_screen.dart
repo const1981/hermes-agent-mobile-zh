@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Pty? _pty;
   bool _loading = true;
   String? _error;
+  // 是否已收到首段真实 shell 输出。用于决定何时收起 loading 遮罩,
+  // 避免 acquire() 一返回就露空白终端、看起来像「连不上」。
+  bool _hasShellOutput = false;
+  Timer? _startupWatchdog;
   final _ctrlNotifier = ValueNotifier<bool>(false);
   final _altNotifier = ValueNotifier<bool>(false);
   // Used to dedupe xterm-on-Android IME double-delivery (see onOutput below).
@@ -89,9 +94,21 @@ class _TerminalScreenState extends State<TerminalScreen> {
     try {
       final mgr = TerminalSessionManager.instance;
 
+      // 确保网关在后台运行——终端里的 hermes 需要它作为模型后端。
+      // 不阻塞终端启动：发后即忘，失败也不影响终端本身拉起。
+      NativeBridge.isGatewayRunning().then((running) {
+        if (!running) {
+          NativeBridge.startGateway().catchError((_) => false);
+        }
+      }).catchError((_) {});
+
       // 实时输出回调（replay 完成后再接上，避免历史与实时重复写屏）
       void realOnOutput(Uint8List data) {
         if (!mounted) return;
+        if (!_hasShellOutput) {
+          _hasShellOutput = true;
+          if (_loading) setState(() => _loading = false);
+        }
         _terminal.write(utf8.decode(data, allowMalformed: true));
       }
 
@@ -108,6 +125,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
       final replay = mgr.bufferedOutput;
       if (replay.isNotEmpty) {
         _terminal.write(replay);
+        _hasShellOutput = true;
+        if (_loading) setState(() => _loading = false);
       }
       // 接上实时流
       mgr.onOutput = realOnOutput;
@@ -150,7 +169,19 @@ class _TerminalScreenState extends State<TerminalScreen> {
         _pty?.resize(h, w);
       };
 
-      setState(() => _loading = false);
+      // 看门狗：若 5 分钟内仍无任何真实输出（proot 没起来 / hermes 卡死），
+      // 给出明确错误 + 重试，而不是无限转圈。
+      _startupWatchdog = Timer(const Duration(minutes: 5), () {
+        if (mounted && _loading && !_hasShellOutput) {
+          setState(() {
+            _loading = false;
+            _error = '终端启动超时（5 分钟无输出）。可点「重试」，'
+                '或到「设置 → 重新初始化」重建 Hermes 环境。';
+          });
+        }
+      });
+      // 注意：不再在 acquire 后立即隐藏 loading——等首段真实输出到达
+      // （realOnOutput / replay）再隐藏，避免空白终端看起来像「连不上」。
     } catch (e) {
       setState(() {
         _loading = false;
@@ -161,6 +192,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   @override
   void dispose() {
+    _startupWatchdog?.cancel();
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
@@ -304,7 +336,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Starting terminal...'),
+                    Text(
+                      '正在启动 Hermes 终端…\n首次启动约需 1–2 分钟，请稍候',
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
