@@ -99,18 +99,31 @@ if not isinstance(_platforms, dict):
 # 拒绝启动（API_SERVER_KEY is required）或 401。
 # 优先级与 App 端 ConfigProvider.loadEnv 完全一致：XIAOMI_API_KEY > HERMES_API_KEY，
 # 再兜底 config.yaml 的 model.api_key（可能引用环境变量、由网关自身展开），最后给固定值。
-def _resolve_api_key():
-    _env = {}
+# 一次性读出 .env：既用于解析 api_server key，也整体导出到 os.environ，
+# 保证网关子进程（execv 继承当前 environ）能看到 API_SERVER_KEY
+# （api_server 平台硬性要求，缺失即 "API_SERVER_KEY is required" 拒绝启动），
+# 以及 XIAOMI_API_KEY/HERMES_API_KEY（config.yaml 的 model.api_key 通过环境变量占位，
+# 需由网关在环境中展开，否则模型调用拿不到 key）。终端 hermes 能聊天正是因为这些
+# 变量在其 shell 环境里；App 的 proot 进程默认没有，必须这里显式导出。
+_env = {}
+try:
+    with open('/root/.hermes/.env', 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            k, v = line.split('=', 1)
+            _env[k.strip()] = v.strip().strip('"').strip("'")
+except Exception:
+    pass
+# 导出全部受管密钥到环境，供网关子进程使用（execv 继承当前 environ）。
+for _k, _v in _env.items():
     try:
-        with open('/root/.hermes/.env', 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#') or '=' not in line:
-                    continue
-                k, v = line.split('=', 1)
-                _env[k.strip()] = v.strip().strip('"').strip("'")
+        os.environ[_k] = _v
     except Exception:
         pass
+
+def _resolve_api_key():
     key = _env.get('XIAOMI_API_KEY') or _env.get('HERMES_API_KEY') or ''
     if key:
         return key
@@ -129,8 +142,14 @@ if not _api_server.get('host'):
     _api_server['host'] = '127.0.0.1'
 if not _api_server.get('port'):
     _api_server['port'] = 18789
+_api_key = _resolve_api_key()
 if not _api_server.get('api_key'):
-    _api_server['api_key'] = _resolve_api_key()
+    _api_server['api_key'] = _api_key
+# api_server 平台硬性要求 API_SERVER_KEY 环境变量（缺失则直接拒绝启动）。
+# 仅写进 yaml 不够，必须显式 export 到环境。
+os.environ['API_SERVER_KEY'] = _api_key
+if not _env.get('HERMES_API_KEY') and not _env.get('XIAOMI_API_KEY'):
+    os.environ['HERMES_API_KEY'] = _api_key
 _platforms['api_server'] = _api_server
 _cfg['platforms'] = _platforms
 
